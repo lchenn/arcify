@@ -78,8 +78,8 @@ async function updatePinnedFavicons() {
 
             const img = document.createElement('img');
             img.src = Utils.getFaviconUrl(tab.url, "96");
-            img.onerror = () => { 
-                img.src = tab.favIconUrl; 
+            img.onerror = () => {
+                img.src = tab.favIconUrl;
                 img.onerror = () => { img.src = 'assets/default_icon.png'; }; // Fallback favicon
             };
             img.alt = tab.title;
@@ -157,8 +157,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // chrome.tabs.onMoved.addListener(handleTabMove);
     chrome.tabs.onActivated.addListener(handleTabActivated);
 
-    // Setup Quick Pin listener
-    setupQuickPinListener(moveTabToSpace, moveTabToPinned, moveTabToTemp);
+    // Setup Quick Pin listener and global search trigger
+    setupQuickPinListener(moveTabToSpace, moveTabToPinned, moveTabToTemp, openSpotlight);
 
     // Add event listener for placeholder close button
     const closePlaceholderBtn = document.querySelector('.placeholder-close-btn');
@@ -198,7 +198,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // deltaX < 0 means swiping left (finger moves left, content moves right) -> next space
                 nextIndex = (currentIndex + 1) % spaces.length;
             }
-            
+
             const nextSpace = spaces[nextIndex];
             if (nextSpace) {
                 await setActiveSpace(nextSpace.id);
@@ -774,14 +774,14 @@ async function createSpaceFromInactive(spaceName, tabToMove) {
         };
 
         // Remove the moved tab from its old space
-        const oldSpace = spaces.find(s => 
+        const oldSpace = spaces.find(s =>
             s.temporaryTabs.includes(tabToMove.id) || s.spaceBookmarks.includes(tabToMove.id)
         );
         if (oldSpace) {
             oldSpace.temporaryTabs = oldSpace.temporaryTabs.filter(id => id !== tabToMove.id);
             oldSpace.spaceBookmarks = oldSpace.spaceBookmarks.filter(id => id !== tabToMove.id);
         }
-        
+
         // Remove the tab's DOM element from the old space's UI
         const tabElementToRemove = document.querySelector(`[data-tab-id="${tabToMove.id}"]`);
         if (tabElementToRemove) {
@@ -1240,8 +1240,8 @@ async function createTabElement(tab, isPinned = false, isBookmarkOnly = false) {
     const favicon = document.createElement('img');
     favicon.src = Utils.getFaviconUrl(tab.url);
     favicon.classList.add('tab-favicon');
-    favicon.onerror = () => { 
-        favicon.src = tab.favIconUrl; 
+    favicon.onerror = () => {
+        favicon.src = tab.favIconUrl;
         favicon.onerror = () => { favicon.src = 'assets/default_icon.png'; }; // Fallback favicon
     }; // Fallback favicon
 
@@ -1659,8 +1659,8 @@ function handleTabUpdate(tabId, changeInfo, tab) {
                 const img = tabElement.querySelector('img');
                 if (img) {
                     img.src = tab.favIconUrl;
-                    img.onerror = () => { 
-                        img.src = tab.favIconUrl; 
+                    img.onerror = () => {
+                        img.src = tab.favIconUrl;
                         img.onerror = () => { img.src = 'assets/default_icon.png'; }; // Fallback favicon
                     };
                 }
@@ -1678,18 +1678,18 @@ function handleTabUpdate(tabId, changeInfo, tab) {
                         space.spaceBookmarks.includes(tabId) ||
                         space.temporaryTabs.includes(tabId)
                     );
-                    
+
                     // If tab was in a space and was bookmarked, remove it from bookmarks
                     if (spaceWithTab && spaceWithTab.spaceBookmarks.includes(tabId)) {
                         const arcifyFolder = await LocalStorage.getOrCreateArcifyFolder();
                         const spaceFolders = await chrome.bookmarks.getChildren(arcifyFolder.id);
                         const spaceFolder = spaceFolders.find(f => f.title === spaceWithTab.name);
-                        
+
                         if (spaceFolder) {
                             await Utils.searchAndRemoveBookmark(spaceFolder.id, tab.url);
                         }
                     }
-                    
+
                     // Remove tab from all spaces data when it becomes pinned
                     spaces.forEach(space => {
                         space.spaceBookmarks = space.spaceBookmarks.filter(id => id !== tabId);
@@ -1917,14 +1917,14 @@ async function deleteSpace(spaceId) {
 
 async function moveTabToSpace(tabId, spaceId, pinned = false, openerTabId = null) {
     // Remove tab from its original space data first
-    const sourceSpace = spaces.find(s => 
+    const sourceSpace = spaces.find(s =>
         s.temporaryTabs.includes(tabId) || s.spaceBookmarks.includes(tabId)
     );
     if (sourceSpace && sourceSpace.id !== spaceId) {
         sourceSpace.temporaryTabs = sourceSpace.temporaryTabs.filter(id => id !== tabId);
         sourceSpace.spaceBookmarks = sourceSpace.spaceBookmarks.filter(id => id !== tabId);
     }
-    
+
     // 1. Find the target space
     const space = spaces.find(s => s.id === spaceId);
     if (!space) {
@@ -1983,4 +1983,242 @@ async function moveTabToSpace(tabId, spaceId, pinned = false, openerTabId = null
 
     // 5. Save the updated spaces to storage
     saveSpaces();
+}
+
+// ==================== SPOTLIGHT SEARCH FUNCTIONALITY ====================
+
+// DOM elements for spotlight
+const spotlightDialog = document.getElementById('spotlightDialog');
+const spotlightInput = document.getElementById('spotlightInput');
+const spotlightResults = document.getElementById('spotlightResults');
+let selectedResultIndex = -1;
+let searchResults = [];
+
+// Function to open spotlight search
+function openSpotlight() {
+    spotlightDialog.style.display = 'flex';
+    spotlightInput.value = '';
+    spotlightInput.focus();
+    spotlightResults.innerHTML = '';
+    selectedResultIndex = -1;
+    searchResults = [];
+}
+
+// Function to close spotlight search
+function closeSpotlight() {
+    spotlightDialog.style.display = 'none';
+    spotlightInput.value = '';
+    spotlightResults.innerHTML = '';
+    selectedResultIndex = -1;
+    searchResults = [];
+}
+
+// Function to search tabs, bookmarks, and history
+async function performSearch(query) {
+    if (!query.trim()) {
+        spotlightResults.innerHTML = '';
+        searchResults = [];
+        selectedResultIndex = -1;
+        return;
+    }
+
+    const results = [];
+    const lowerQuery = query.toLowerCase();
+
+    // Search tabs
+    const tabs = await chrome.tabs.query({});
+    tabs.forEach(tab => {
+        if (tab.title.toLowerCase().includes(lowerQuery) || tab.url.toLowerCase().includes(lowerQuery)) {
+            results.push({
+                type: 'tab',
+                title: tab.title,
+                url: tab.url,
+                tabId: tab.id,
+                favIconUrl: tab.favIconUrl
+            });
+        }
+    });
+
+    // Search bookmarks
+    const bookmarks = await chrome.bookmarks.search(query);
+    bookmarks.forEach(bookmark => {
+        if (bookmark.url) {
+            results.push({
+                type: 'bookmark',
+                title: bookmark.title,
+                url: bookmark.url
+            });
+        }
+    });
+
+    // Search history
+    const historyItems = await chrome.history.search({
+        text: query,
+        maxResults: 50
+    });
+    historyItems.forEach(item => {
+        if (item.url && item.title) {
+            const alreadyExists = results.some(r => r.url === item.url);
+            if (!alreadyExists) {
+                results.push({
+                    type: 'history',
+                    title: item.title,
+                    url: item.url,
+                    visitCount: item.visitCount
+                });
+            }
+        }
+    });
+
+    searchResults = results;
+    displayResults(results);
+}
+
+// Function to display search results
+function displayResults(results) {
+    if (results.length === 0) {
+        spotlightResults.innerHTML = '<div class="spotlight-no-results">No results found</div>';
+        return;
+    }
+
+    spotlightResults.innerHTML = '';
+    results.forEach((result, index) => {
+        const resultElement = document.createElement('div');
+        resultElement.className = 'spotlight-result';
+        resultElement.dataset.index = index;
+
+        const iconElement = document.createElement('div');
+        iconElement.className = 'spotlight-result-icon';
+
+        if (result.type === 'tab' && result.favIconUrl) {
+            const img = document.createElement('img');
+            img.src = result.favIconUrl;
+            img.onerror = () => {
+                img.src = Utils.getFaviconUrl(result.url, "32");
+                img.onerror = () => { img.src = 'assets/default_icon.png'; }
+            };
+            iconElement.appendChild(img);
+        } else {
+            const img = document.createElement('img');
+            img.src = Utils.getFaviconUrl(result.url, "32");
+            img.onerror = () => { img.src = 'assets/default_icon.png'; };
+            iconElement.appendChild(img);
+        }
+
+        const contentElement = document.createElement('div');
+        contentElement.className = 'spotlight-result-content';
+
+        const titleElement = document.createElement('div');
+        titleElement.className = 'spotlight-result-title';
+        titleElement.textContent = result.title || result.url;
+
+        const urlElement = document.createElement('div');
+        urlElement.className = 'spotlight-result-url';
+        urlElement.textContent = result.url;
+
+        contentElement.appendChild(titleElement);
+        contentElement.appendChild(urlElement);
+
+        const typeElement = document.createElement('div');
+        typeElement.className = 'spotlight-result-type';
+        typeElement.textContent = result.type;
+
+        resultElement.appendChild(iconElement);
+        resultElement.appendChild(contentElement);
+        resultElement.appendChild(typeElement);
+
+        resultElement.addEventListener('click', () => openResult(result));
+        resultElement.addEventListener('mouseenter', () => {
+            document.querySelectorAll('.spotlight-result').forEach(el => el.classList.remove('selected'));
+            resultElement.classList.add('selected');
+            selectedResultIndex = index;
+        });
+
+        spotlightResults.appendChild(resultElement);
+    });
+
+    if (results.length > 0) {
+        selectedResultIndex = 0;
+        spotlightResults.children[0].classList.add('selected');
+    }
+}
+
+// Function to open a result
+async function openResult(result) {
+    if (result.type === 'tab') {
+        await chrome.tabs.update(result.tabId, { active: true });
+        const tab = await chrome.tabs.get(result.tabId);
+        await chrome.windows.update(tab.windowId, { focused: true });
+    } else {
+        await chrome.tabs.create({ url: result.url, active: true });
+    }
+    closeSpotlight();
+}
+
+// Event listener for input
+let searchTimeout;
+spotlightInput.addEventListener('input', (e) => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        performSearch(e.target.value);
+    }, 200);
+});
+
+// Event listener for keyboard navigation
+spotlightInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        closeSpotlight();
+    } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (searchResults.length > 0) {
+            selectedResultIndex = (selectedResultIndex + 1) % searchResults.length;
+            updateSelectedResult();
+        }
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (searchResults.length > 0) {
+            selectedResultIndex = selectedResultIndex <= 0 ? searchResults.length - 1 : selectedResultIndex - 1;
+            updateSelectedResult();
+        }
+    } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (selectedResultIndex >= 0 && searchResults[selectedResultIndex]) {
+            openResult(searchResults[selectedResultIndex]);
+        }
+    }
+});
+
+// Function to update selected result styling
+function updateSelectedResult() {
+    document.querySelectorAll('.spotlight-result').forEach((el, index) => {
+        if (index === selectedResultIndex) {
+            el.classList.add('selected');
+            el.scrollIntoView({ block: 'nearest' });
+        } else {
+            el.classList.remove('selected');
+        }
+    });
+}
+
+// Event listener to close on backdrop click
+spotlightDialog.addEventListener('click', (e) => {
+    if (e.target === spotlightDialog) {
+        closeSpotlight();
+    }
+});
+
+// Add keyboard shortcut to open spotlight (Ctrl+K or Cmd+K)
+document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        openSpotlight();
+    }
+});
+
+// Add event listener for search help button
+const searchHelpBtn = document.getElementById('searchHelpBtn');
+if (searchHelpBtn) {
+    searchHelpBtn.addEventListener('click', () => {
+        openSpotlight();
+    });
 }

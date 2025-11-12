@@ -9,6 +9,7 @@
     "sidePanel",
     "storage",
     "bookmarks",
+    "history",
     "alarms",
     "commands",
     "favicon"
@@ -54,6 +55,13 @@
         "mac": "Command+D"
       },
       "description": "Quick Pin/Unpin Tab"
+    },
+    "openSearch": {
+      "suggested_key": {
+        "default": "Ctrl+K",
+        "mac": "Command+K"
+      },
+      "description": "Open Search"
     }
   },
   "options_page": "options.html"

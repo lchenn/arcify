@@ -76,6 +76,175 @@ h3 {
     color: #999;
 }
 
+.spotlight-input-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.spotlight-shortcuts {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 12px 8px 12px;
+    font-size: 12px;
+    color: #666;
+    flex-wrap: wrap;
+}
+
+.spotlight-kbd {
+    display: inline-block;
+    padding: 2px 6px;
+    background: linear-gradient(180deg, #fefefe 0%, #f3f3f3 100%);
+    border: 1px solid #d4d4d4;
+    border-radius: 4px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+    font-size: 11px;
+    font-weight: 500;
+    color: #444;
+    line-height: 1.4;
+    min-width: 20px;
+    text-align: center;
+}
+
+.spotlight-hint {
+    margin-right: 8px;
+    color: #999;
+}
+
+.search-help-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: none;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    transition: all 0.3s ease;
+    z-index: 999;
+}
+
+.search-help-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(102, 126, 234, 0.5);
+}
+
+.search-help-btn:active {
+    transform: translateY(0);
+}
+
+.search-icon {
+    width: 18px;
+    height: 18px;
+    fill: white;
+}
+
+.search-kbd-hint {
+    display: inline-block;
+    padding: 1px 4px;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+    font-size: 9px;
+    font-weight: 600;
+    color: white;
+    line-height: 1.2;
+}
+
+.spotlight-results {
+    max-height: 400px;
+    overflow-y: auto;
+    margin-top: 8px;
+}
+
+.spotlight-result {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    gap: 12px;
+}
+
+.spotlight-result:hover,
+.spotlight-result.selected {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.spotlight-result-icon {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.spotlight-result-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: 4px;
+}
+
+.spotlight-result-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.spotlight-result-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.spotlight-result-url {
+    font-size: 12px;
+    color: #666;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.spotlight-result-type {
+    flex-shrink: 0;
+    font-size: 11px;
+    text-transform: uppercase;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.spotlight-result-type {
+    background-color: rgba(0, 0, 0, 0.08);
+    color: #666;
+}
+
+.spotlight-no-results {
+    padding: 24px;
+    text-align: center;
+    color: #999;
+    font-size: 14px;
+}
+
 .sidebar-container {
     background-color: var(--space-bg-color, rgba(255, 255, 255, 0.1));
     padding: 16px 8px;
@@ -1072,7 +1241,7 @@ h3 {
 /* iOS Toggle Switch Styles */
 .options-setting-toggle {
     display: flex; /* Align label and toggle horizontally */
-    align-items: end; 
+    align-items: end;
     justify-content: space-between; /* Push toggle to the right */
 }
 

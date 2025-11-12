@@ -45,6 +45,10 @@ chrome.commands.onCommand.addListener(function(command) {
         console.log("sending");
         // Send a message to the sidebar
         chrome.runtime.sendMessage({ command: "quickPinToggle" });
+    } else if (command === "openSearch") {
+        console.log("Opening search from global shortcut");
+        // Send a message to the sidebar to open search
+        chrome.runtime.sendMessage({ command: "openSearch" });
     }
 });
 
