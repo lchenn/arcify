@@ -38,17 +38,71 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     if (request.command === "toggleSpacePin") {
         chrome.runtime.sendMessage({ command: "toggleSpacePin", tabId: request.tabId });
     }
+
+    // Handle search request from content script
+    if (request.action === 'performSearch') {
+        performSearch(request.query).then(results => {
+            sendResponse({ results: results });
+        });
+        return true; // Keep message channel open for async response
+    }
+
+    // Handle opening search result
+    if (request.action === 'openSearchResult') {
+        openSearchResult(request.result);
+    }
 });
 
-chrome.commands.onCommand.addListener(function(command) {
+// Helper function to check if URL can receive content scripts
+function canInjectContentScript(url) {
+    if (!url) return false;
+
+    // Content scripts cannot run on these URLs
+    const restrictedProtocols = ['chrome:', 'chrome-extension:', 'about:', 'edge:', 'browser:'];
+    const restrictedUrls = ['chrome.google.com/webstore'];
+
+    // Check protocol
+    for (const protocol of restrictedProtocols) {
+        if (url.startsWith(protocol)) {
+            return false;
+        }
+    }
+
+    // Check specific URLs
+    for (const restrictedUrl of restrictedUrls) {
+        if (url.includes(restrictedUrl)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+chrome.commands.onCommand.addListener(async function(command) {
     if (command === "quickPinToggle") {
         console.log("sending");
         // Send a message to the sidebar
         chrome.runtime.sendMessage({ command: "quickPinToggle" });
     } else if (command === "openSearch") {
         console.log("Opening search from global shortcut");
-        // Send a message to the sidebar to open search
-        chrome.runtime.sendMessage({ command: "openSearch" });
+
+        // Try to send to active tab's content script
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+        if (tab && canInjectContentScript(tab.url)) {
+            try {
+                await chrome.tabs.sendMessage(tab.id, { command: "openSearch" });
+                console.log("Search modal opened in content script");
+            } catch (error) {
+                console.log("Content script not ready, falling back to sidebar:", error.message);
+                // Fall back to sidebar
+                chrome.runtime.sendMessage({ command: "openSearch" });
+            }
+        } else {
+            // On restricted pages, open sidebar search instead
+            console.log("Tab URL restricted for content scripts, opening sidebar search");
+            chrome.runtime.sendMessage({ command: "openSearch" });
+        }
     }
 });
 
@@ -272,3 +326,78 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Keep the message channel open for asynchronous response if needed
     // return true;
 });
+
+// --- Search Functions for Global Modal ---
+
+async function performSearch(query) {
+    const searchQuery = query.toLowerCase();
+    const results = [];
+
+    // Search tabs
+    const tabs = await chrome.tabs.query({});
+    tabs.forEach(tab => {
+        const title = (tab.title || '').toLowerCase();
+        const url = (tab.url || '').toLowerCase();
+
+        if (title.includes(searchQuery) || url.includes(searchQuery)) {
+            results.push({
+                title: tab.title,
+                url: tab.url,
+                favIconUrl: tab.favIconUrl,
+                type: 'tab',
+                tabId: tab.id,
+                windowId: tab.windowId
+            });
+        }
+    });
+
+    // Search bookmarks
+    const bookmarks = await chrome.bookmarks.search(query);
+    bookmarks.forEach(bookmark => {
+        if (bookmark.url) {
+            results.push({
+                title: bookmark.title,
+                url: bookmark.url,
+                type: 'bookmark',
+                bookmarkId: bookmark.id
+            });
+        }
+    });
+
+    // Search history
+    const historyItems = await chrome.history.search({
+        text: query,
+        maxResults: 20
+    });
+    historyItems.forEach(item => {
+        results.push({
+            title: item.title,
+            url: item.url,
+            type: 'history'
+        });
+    });
+
+    // Sort results: tabs first, then bookmarks, then history
+    results.sort((a, b) => {
+        const order = { tab: 1, bookmark: 2, history: 3 };
+        return order[a.type] - order[b.type];
+    });
+
+    return results.slice(0, 50); // Limit to 50 results
+}
+
+async function openSearchResult(result) {
+    if (result.type === 'tab') {
+        // Switch to existing tab
+        await chrome.tabs.update(result.tabId, { active: true });
+        await chrome.windows.update(result.windowId, { focused: true });
+    } else if (result.type === 'bookmark' || result.type === 'history') {
+        // Open in current tab or new tab based on user preference
+        const [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (currentTab) {
+            await chrome.tabs.update(currentTab.id, { url: result.url });
+        } else {
+            await chrome.tabs.create({ url: result.url });
+        }
+    }
+}
