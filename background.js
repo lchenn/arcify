@@ -36,7 +36,9 @@ if (chrome.contextMenus) {
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     // Forward the pin toggle command to the sidebar
     if (request.command === "toggleSpacePin") {
-        chrome.runtime.sendMessage({ command: "toggleSpacePin", tabId: request.tabId });
+        chrome.runtime.sendMessage({ command: "toggleSpacePin", tabId: request.tabId }).catch(error => {
+            console.log("No receiver for toggleSpacePin message:", error.message);
+        });
     }
 
     // Handle search request from content script
@@ -82,7 +84,9 @@ chrome.commands.onCommand.addListener(async function(command) {
     if (command === "quickPinToggle") {
         console.log("sending");
         // Send a message to the sidebar
-        chrome.runtime.sendMessage({ command: "quickPinToggle" });
+        chrome.runtime.sendMessage({ command: "quickPinToggle" }).catch(error => {
+            console.log("No receiver for quickPinToggle message:", error.message);
+        });
     } else if (command === "openSearch") {
         console.log("Opening search from global shortcut");
 
@@ -96,12 +100,16 @@ chrome.commands.onCommand.addListener(async function(command) {
             } catch (error) {
                 console.log("Content script not ready, falling back to sidebar:", error.message);
                 // Fall back to sidebar
-                chrome.runtime.sendMessage({ command: "openSearch" });
+                chrome.runtime.sendMessage({ command: "openSearch" }).catch(err => {
+                    console.log("No receiver for openSearch message:", err.message);
+                });
             }
         } else {
             // On restricted pages, open sidebar search instead
             console.log("Tab URL restricted for content scripts, opening sidebar search");
-            chrome.runtime.sendMessage({ command: "openSearch" });
+            chrome.runtime.sendMessage({ command: "openSearch" }).catch(error => {
+                console.log("No receiver for openSearch message:", error.message);
+            });
         }
     }
 });
