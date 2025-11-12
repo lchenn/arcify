@@ -1998,10 +1998,14 @@ let searchResults = [];
 function openSpotlight() {
     spotlightDialog.style.display = 'flex';
     spotlightInput.value = '';
-    spotlightInput.focus();
     spotlightResults.innerHTML = '';
     selectedResultIndex = -1;
     searchResults = [];
+
+    // Use setTimeout to ensure focus happens after the dialog is rendered
+    setTimeout(() => {
+        spotlightInput.focus();
+    }, 0);
 }
 
 // Function to close spotlight search
@@ -2207,13 +2211,23 @@ spotlightDialog.addEventListener('click', (e) => {
     }
 });
 
-// Add keyboard shortcut to open spotlight (Ctrl+K or Cmd+K)
+// Global ESC key handler to close spotlight
 document.addEventListener('keydown', (e) => {
+    // Close spotlight on ESC if it's visible
+    if (e.key === 'Escape' && spotlightDialog.style.display === 'flex') {
+        e.preventDefault();
+        e.stopPropagation();
+        closeSpotlight();
+        return;
+    }
+
+    // Open spotlight on Ctrl+K or Cmd+K
     if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault();
+        e.stopPropagation();
         openSpotlight();
     }
-});
+}, true); // Use capture phase to catch events before they bubble
 
 // Add event listener for search help button
 const searchHelpBtn = document.getElementById('searchHelpBtn');

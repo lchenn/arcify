@@ -1,4 +1,4 @@
-import { Utils } from './utils.js'; 
+import { Utils } from './utils.js';
 
 // Function to save options to chrome.storage
 async function saveOptions() {
@@ -35,15 +35,24 @@ async function saveOptions() {
 // Function to restore options from chrome.storage
 async function restoreOptions() {
 
-    const settings = await Utils.getSettings(); 
+    const settings = await Utils.getSettings();
 
     const defaultSpaceName = document.getElementById('defaultSpaceName');
-    const autoArchiveEnabledCheckbox = document.getElementById('autoArchiveEnabled'); 
+    const autoArchiveEnabledCheckbox = document.getElementById('autoArchiveEnabled');
     const autoArchiveIdleMinutesInput = document.getElementById('autoArchiveIdleMinutes');
     defaultSpaceName.value = settings.defaultSpaceName;
     autoArchiveEnabledCheckbox.checked = settings.autoArchiveEnabled;
     autoArchiveIdleMinutesInput.value = settings.autoArchiveIdleMinutes;
 }
 
+// Function to open Chrome's keyboard shortcuts page
+function openShortcutsPage() {
+    chrome.tabs.create({
+        url: 'chrome://extensions/shortcuts',
+        active: true
+    });
+}
+
 document.addEventListener('DOMContentLoaded', restoreOptions);
 document.getElementById('save').addEventListener('click', saveOptions);
+document.getElementById('customizeShortcuts').addEventListener('click', openShortcutsPage);
