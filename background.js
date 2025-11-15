@@ -3,6 +3,13 @@ import { Utils } from './utils.js';
 const AUTO_ARCHIVE_ALARM_NAME = 'autoArchiveTabsAlarm';
 const TAB_ACTIVITY_STORAGE_KEY = 'tabLastActivity'; // Key to store timestamps
 
+// Track tab history for cycling through recent tabs (like Arc browser)
+const MAX_TAB_HISTORY = 5;
+let tabHistory = []; // Array of tab IDs in order of most recent access
+let currentCycleIndex = 0; // Current position in the cycle
+let isCycling = false; // Whether user is currently cycling through tabs
+let cyclingTimeout = null; // Timeout to reset cycling state
+
 // Configure Chrome side panel behavior
 chrome.sidePanel.setPanelBehavior({
     openPanelOnActionClick: true
@@ -116,6 +123,66 @@ chrome.commands.onCommand.addListener(async function(command) {
                 console.log("No receiver for openSearch message:", error.message);
             });
         }
+    } else if (command === "switchToRecentTab") {
+        console.log("Cycling through recent tabs");
+
+        // Clear any existing timeout
+        if (cyclingTimeout) {
+            clearTimeout(cyclingTimeout);
+        }
+
+        // If we just started cycling, set up the cycle index
+        if (!isCycling) {
+            isCycling = true;
+            currentCycleIndex = 0;
+
+            // Filter out closed tabs from history
+            const validHistory = [];
+            for (const tabId of tabHistory) {
+                try {
+                    await chrome.tabs.get(tabId);
+                    validHistory.push(tabId);
+                } catch (error) {
+                    console.log(`Tab ${tabId} no longer exists, removing from history`);
+                }
+            }
+            tabHistory = validHistory;
+        }
+
+        // Check if we have tabs to cycle through
+        if (tabHistory.length === 0) {
+            console.log("No recent tabs to cycle through");
+            isCycling = false;
+            return;
+        }
+
+        // Move to the next tab in history
+        currentCycleIndex = (currentCycleIndex + 1) % tabHistory.length;
+        const targetTabId = tabHistory[currentCycleIndex];
+
+        try {
+            // Switch to the selected tab
+            await chrome.tabs.update(targetTabId, { active: true });
+            console.log(`Cycled to tab: ${targetTabId} (index ${currentCycleIndex}/${tabHistory.length})`);
+        } catch (error) {
+            console.log("Error switching to tab:", error.message);
+            // Remove invalid tab and try again
+            tabHistory.splice(currentCycleIndex, 1);
+            if (tabHistory.length > 0) {
+                currentCycleIndex = currentCycleIndex % tabHistory.length;
+                const nextTabId = tabHistory[currentCycleIndex];
+                await chrome.tabs.update(nextTabId, { active: true });
+            } else {
+                isCycling = false;
+            }
+        }
+
+        // Reset cycling state after 2 seconds of inactivity
+        cyclingTimeout = setTimeout(() => {
+            isCycling = false;
+            currentCycleIndex = 0;
+            console.log("Cycling state reset");
+        }, 2000);
     }
 });
 
@@ -311,6 +378,25 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
     console.log(`Tab activated: ${activeInfo.tabId}`);
     await updateTabLastActivity(activeInfo.tabId);
+
+    // Update tab history for cycling through recent tabs
+    const tabId = activeInfo.tabId;
+
+    // Remove the tab if it's already in history (to move it to the front)
+    const existingIndex = tabHistory.indexOf(tabId);
+    if (existingIndex !== -1) {
+        tabHistory.splice(existingIndex, 1);
+    }
+
+    // Add the tab to the front of the history
+    tabHistory.unshift(tabId);
+
+    // Keep only the most recent MAX_TAB_HISTORY tabs
+    if (tabHistory.length > MAX_TAB_HISTORY) {
+        tabHistory = tabHistory.slice(0, MAX_TAB_HISTORY);
+    }
+
+    console.log(`Tab history updated: [${tabHistory.join(', ')}]`);
 });
 
 // Track tab updates (e.g., audible status changes)

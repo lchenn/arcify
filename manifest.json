@@ -71,6 +71,13 @@
         "mac": "Command+K"
       },
       "description": "Open Search"
+    },
+    "switchToRecentTab": {
+      "suggested_key": {
+        "default": "Ctrl+Q",
+        "mac": "Command+Q"
+      },
+      "description": "Switch to most recent tab"
     }
   },
   "options_page": "options.html"
