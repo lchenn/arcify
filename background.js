@@ -416,14 +416,21 @@ async function openSearchResult(result) {
 }
 
 async function searchWithDefaultEngine(query) {
-    // Use Chrome's default search engine by opening a search URL
-    // Chrome will use the default search engine configured in settings
-    const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
-
-    const [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (currentTab) {
-        await chrome.tabs.update(currentTab.id, { url: searchUrl });
-    } else {
-        await chrome.tabs.create({ url: searchUrl });
+    // Use Chrome's search API to search with the user's default search engine
+    try {
+        await chrome.search.query({
+            text: query,
+            disposition: 'CURRENT_TAB'
+        });
+    } catch (error) {
+        console.error('Error using chrome.search.query:', error);
+        // Fallback to opening a new tab with Google search if the API fails
+        const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+        const [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (currentTab) {
+            await chrome.tabs.update(currentTab.id, { url: searchUrl });
+        } else {
+            await chrome.tabs.create({ url: searchUrl });
+        }
     }
 }

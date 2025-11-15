@@ -12,7 +12,8 @@
     "history",
     "alarms",
     "commands",
-    "favicon"
+    "favicon",
+    "search"
   ],
   "side_panel": {
     "default_path": "sidebar.html"
