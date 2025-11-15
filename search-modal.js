@@ -360,7 +360,7 @@
         const resultsContainer = document.getElementById('arcify-search-results');
 
         if (results.length === 0) {
-            resultsContainer.innerHTML = '<div class="arcify-no-results">No results found</div>';
+            resultsContainer.innerHTML = '<div class="arcify-no-results">No results found<br><span style="font-size: 12px; color: #999; margin-top: 8px; display: inline-block;">Press <kbd class="arcify-kbd">↵</kbd> to search with default search engine</span></div>';
             return;
         }
 
