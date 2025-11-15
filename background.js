@@ -346,49 +346,58 @@ async function performSearch(query) {
     const searchQuery = query.toLowerCase();
     const results = [];
 
-    // Search tabs
-    const tabs = await chrome.tabs.query({});
-    tabs.forEach(tab => {
-        const title = (tab.title || '').toLowerCase();
-        const url = (tab.url || '').toLowerCase();
+    // Get settings to check which sources to search
+    const settings = await Utils.getSettings();
 
-        if (title.includes(searchQuery) || url.includes(searchQuery)) {
-            results.push({
-                title: tab.title,
-                url: tab.url,
-                favIconUrl: tab.favIconUrl,
-                type: 'tab',
-                tabId: tab.id,
-                windowId: tab.windowId
-            });
-        }
-    });
+    // Search tabs (if enabled)
+    if (settings.searchTabs !== false) {
+        const tabs = await chrome.tabs.query({});
+        tabs.forEach(tab => {
+            const title = (tab.title || '').toLowerCase();
+            const url = (tab.url || '').toLowerCase();
 
-    // Search bookmarks
-    const bookmarks = await chrome.bookmarks.search(query);
-    bookmarks.forEach(bookmark => {
-        if (bookmark.url) {
-            results.push({
-                title: bookmark.title,
-                url: bookmark.url,
-                type: 'bookmark',
-                bookmarkId: bookmark.id
-            });
-        }
-    });
-
-    // Search history
-    const historyItems = await chrome.history.search({
-        text: query,
-        maxResults: 20
-    });
-    historyItems.forEach(item => {
-        results.push({
-            title: item.title,
-            url: item.url,
-            type: 'history'
+            if (title.includes(searchQuery) || url.includes(searchQuery)) {
+                results.push({
+                    title: tab.title,
+                    url: tab.url,
+                    favIconUrl: tab.favIconUrl,
+                    type: 'tab',
+                    tabId: tab.id,
+                    windowId: tab.windowId
+                });
+            }
         });
-    });
+    }
+
+    // Search bookmarks (if enabled)
+    if (settings.searchBookmarks !== false) {
+        const bookmarks = await chrome.bookmarks.search(query);
+        bookmarks.forEach(bookmark => {
+            if (bookmark.url) {
+                results.push({
+                    title: bookmark.title,
+                    url: bookmark.url,
+                    type: 'bookmark',
+                    bookmarkId: bookmark.id
+                });
+            }
+        });
+    }
+
+    // Search history (if enabled)
+    if (settings.searchHistory !== false) {
+        const historyItems = await chrome.history.search({
+            text: query,
+            maxResults: 20
+        });
+        historyItems.forEach(item => {
+            results.push({
+                title: item.title,
+                url: item.url,
+                type: 'history'
+            });
+        });
+    }
 
     // Sort results: tabs first, then bookmarks, then history
     results.sort((a, b) => {

@@ -5,12 +5,17 @@ async function saveOptions() {
   const defaultSpaceName = document.getElementById('defaultSpaceName').value;
   const autoArchiveEnabledCheckbox = document.getElementById('autoArchiveEnabled');
   const autoArchiveIdleMinutesInput = document.getElementById('autoArchiveIdleMinutes');
-//   const saveButton = document.getElementById('saveSettingsBtn'); // Or however settings are saved
+  const searchTabsCheckbox = document.getElementById('searchTabs');
+  const searchBookmarksCheckbox = document.getElementById('searchBookmarks');
+  const searchHistoryCheckbox = document.getElementById('searchHistory');
 
   const settings = {
-    defaultSpaceName: defaultSpaceName || 'Home', // Default to 'Home' if empty
+    defaultSpaceName: defaultSpaceName || 'Home',
     autoArchiveEnabled: autoArchiveEnabledCheckbox.checked,
     autoArchiveIdleMinutes: parseInt(autoArchiveIdleMinutesInput.value, 10) || 30,
+    searchTabs: searchTabsCheckbox.checked,
+    searchBookmarks: searchBookmarksCheckbox.checked,
+    searchHistory: searchHistoryCheckbox.checked,
   };
 
   try {
@@ -40,9 +45,16 @@ async function restoreOptions() {
     const defaultSpaceName = document.getElementById('defaultSpaceName');
     const autoArchiveEnabledCheckbox = document.getElementById('autoArchiveEnabled');
     const autoArchiveIdleMinutesInput = document.getElementById('autoArchiveIdleMinutes');
+    const searchTabsCheckbox = document.getElementById('searchTabs');
+    const searchBookmarksCheckbox = document.getElementById('searchBookmarks');
+    const searchHistoryCheckbox = document.getElementById('searchHistory');
+
     defaultSpaceName.value = settings.defaultSpaceName;
     autoArchiveEnabledCheckbox.checked = settings.autoArchiveEnabled;
     autoArchiveIdleMinutesInput.value = settings.autoArchiveIdleMinutes;
+    searchTabsCheckbox.checked = settings.searchTabs !== false; // Default to true
+    searchBookmarksCheckbox.checked = settings.searchBookmarks !== false; // Default to true
+    searchHistoryCheckbox.checked = settings.searchHistory !== false; // Default to true
 }
 
 // Function to open Chrome's keyboard shortcuts page

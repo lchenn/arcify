@@ -27,10 +27,10 @@ const Utils = {
                 bookmarks.push(...subFolderBookmarks);
             }
         }
-        
+
         return bookmarks;
     },
-    
+
     // Helper function to generate UUID (If you want to move this too)
     generateUUID: function() {
         return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -50,9 +50,11 @@ const Utils = {
     getSettings: async function() {
         const defaultSettings = {
             defaultSpaceName: 'Home',
-            autoArchiveEnabled: false, // Default: disabled
-            autoArchiveIdleMinutes: 30, // Default: 30 minutes
-            // ... other settings ...
+            autoArchiveEnabled: false,
+            autoArchiveIdleMinutes: 30,
+            searchTabs: true,
+            searchBookmarks: true,
+            searchHistory: true,
         };
         const result = await chrome.storage.sync.get(defaultSettings);
         console.log("Retrieved settings:", result);
@@ -113,16 +115,16 @@ const Utils = {
         }
     },
 
-    updateBookmarkTitleIfNeeded: async function(tab, activeSpace, newTitle) {    
+    updateBookmarkTitleIfNeeded: async function(tab, activeSpace, newTitle) {
         console.log(`Attempting to update bookmark for pinned tab ${tab.id} in space ${activeSpace.name} to title: ${newTitle}`);
-    
+
         try {
             const spaceFolder = await LocalStorage.getOrCreateSpaceFolder(activeSpace.name);
             if (!spaceFolder) {
                 console.error(`Bookmark folder for space ${activeSpace.name} not found.`);
                 return;
             }
-    
+
             // Recursive function to find and update the bookmark
             const findAndUpdate = async (folderId) => {
                 const items = await chrome.bookmarks.getChildren(folderId);
@@ -145,12 +147,12 @@ const Utils = {
                 }
                 return false; // Not found in this folder
             };
-    
+
             const updated = await findAndUpdate(spaceFolder.id);
             if (!updated) {
                 console.log(`Bookmark for URL ${tab.url} not found in space folder ${activeSpace.name}.`);
             }
-    
+
         } catch (error) {
             console.error(`Error updating bookmark for tab ${tab.id}:`, error);
         }
@@ -282,11 +284,11 @@ const Utils = {
                     console.log("removing bookmark", item);
                 }
                 await chrome.bookmarks.remove(item.id);
-                
+
                 if (removeTabElement && tabElement) {
                     tabElement.remove();
                 }
-                
+
                 return true; // Bookmark found and removed
             } else if (!item.url) {
                 // This is a folder, search recursively
