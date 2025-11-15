@@ -289,8 +289,16 @@
                 }
             } else if (e.key === 'Enter') {
                 e.preventDefault();
+                const query = input.value.trim();
                 if (selectedResultIndex >= 0 && searchResults[selectedResultIndex]) {
                     openResult(searchResults[selectedResultIndex]);
+                } else if (query && searchResults.length === 0) {
+                    // Fallback to Chrome's default search engine
+                    chrome.runtime.sendMessage({
+                        action: 'searchWithDefaultEngine',
+                        query: query
+                    });
+                    closeModal();
                 }
             }
         });

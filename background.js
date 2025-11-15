@@ -53,6 +53,11 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     if (request.action === 'openSearchResult') {
         openSearchResult(request.result);
     }
+
+    // Handle search with default engine
+    if (request.action === 'searchWithDefaultEngine') {
+        searchWithDefaultEngine(request.query);
+    }
 });
 
 // Helper function to check if URL can receive content scripts
@@ -407,5 +412,18 @@ async function openSearchResult(result) {
         } else {
             await chrome.tabs.create({ url: result.url });
         }
+    }
+}
+
+async function searchWithDefaultEngine(query) {
+    // Use Chrome's default search engine by opening a search URL
+    // Chrome will use the default search engine configured in settings
+    const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+
+    const [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (currentTab) {
+        await chrome.tabs.update(currentTab.id, { url: searchUrl });
+    } else {
+        await chrome.tabs.create({ url: searchUrl });
     }
 }
