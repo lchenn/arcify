@@ -19,6 +19,7 @@ export default defineConfig({
         'sidebar-script': resolve(__dirname, 'sidebar.js'),
         'options-script': resolve(__dirname, 'options.js'),
         'onboarding-script': resolve(__dirname, 'onboarding.js'),
+        'search-modal': resolve(__dirname, 'search-modal.js'),
         utils: resolve(__dirname, 'utils.js'),
         localstorage: resolve(__dirname, 'localstorage.js'),
         chromeHelper: resolve(__dirname, 'chromeHelper.js'),
@@ -29,8 +30,8 @@ export default defineConfig({
           // Keep original names for main scripts
           const mainScripts = ['background', 'sidebar-script', 'options-script', 'onboarding-script', 'utils', 'localstorage', 'chromeHelper', 'icons'];
           if (mainScripts.includes(chunkInfo.name)) {
-            return chunkInfo.name === 'sidebar-script' ? 'sidebar.js' : 
-                   chunkInfo.name === 'options-script' ? 'options.js' : 
+            return chunkInfo.name === 'sidebar-script' ? 'sidebar.js' :
+                   chunkInfo.name === 'options-script' ? 'options.js' :
                    `${chunkInfo.name}.js`;
           }
           return 'assets/[name]-[hash].js';
@@ -57,17 +58,17 @@ export default defineConfig({
       writeBundle: async () => {
         // Copy manifest.json
         await fs.copy('manifest.json', 'dist/manifest.json');
-        
+
         // Copy assets folder if it exists
         if (await fs.pathExists('assets')) {
           await fs.copy('assets', 'dist/assets');
         }
-        
+
         // Copy styles.css
         if (await fs.pathExists('styles.css')) {
           await fs.copy('styles.css', 'dist/styles.css');
         }
-        
+
         // Copy LICENSE and README if they exist
         if (await fs.pathExists('LICENSE')) {
           await fs.copy('LICENSE', 'dist/LICENSE');
@@ -75,7 +76,7 @@ export default defineConfig({
         if (await fs.pathExists('README.md')) {
           await fs.copy('README.md', 'dist/README.md');
         }
-        
+
         console.log('✅ Chrome extension files copied to dist/');
       }
     }
@@ -91,4 +92,4 @@ export default defineConfig({
       '@': resolve(__dirname, './'),
     }
   }
-}); 
+});

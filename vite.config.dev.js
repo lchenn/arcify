@@ -22,6 +22,7 @@ export default defineConfig({
         'sidebar-script': resolve(__dirname, 'sidebar.js'),
         'options-script': resolve(__dirname, 'options.js'),
         'onboarding-script': resolve(__dirname, 'onboarding.js'),
+        'search-modal': resolve(__dirname, 'search-modal.js'),
         utils: resolve(__dirname, 'utils.js'),
         localstorage: resolve(__dirname, 'localstorage.js'),
         chromeHelper: resolve(__dirname, 'chromeHelper.js'),
@@ -31,8 +32,8 @@ export default defineConfig({
         entryFileNames: (chunkInfo) => {
           const mainScripts = ['background', 'sidebar-script', 'options-script', 'onboarding-script', 'utils', 'localstorage', 'chromeHelper', 'icons'];
           if (mainScripts.includes(chunkInfo.name)) {
-            return chunkInfo.name === 'sidebar-script' ? 'sidebar.js' : 
-                   chunkInfo.name === 'options-script' ? 'options.js' : 
+            return chunkInfo.name === 'sidebar-script' ? 'sidebar.js' :
+                   chunkInfo.name === 'options-script' ? 'options.js' :
                    `${chunkInfo.name}.js`;
           }
           return '[name].js';
@@ -51,20 +52,20 @@ export default defineConfig({
       name: 'webExtension',
       writeBundle: async () => {
         const fs = await import('fs-extra');
-        
+
         // Copy manifest.json
         await fs.copy('manifest.json', 'dist-dev/manifest.json');
-        
+
         // Copy assets folder if it exists
         if (await fs.pathExists('assets')) {
           await fs.copy('assets', 'dist-dev/assets');
         }
-        
+
         // Copy styles.css
         if (await fs.pathExists('styles.css')) {
           await fs.copy('styles.css', 'dist-dev/styles.css');
         }
-        
+
         console.log('🔄 Development files updated in dist-dev/');
       }
     }
@@ -74,4 +75,4 @@ export default defineConfig({
     open: false,
     hmr: false // Disable HMR for Chrome extension
   }
-}); 
+});

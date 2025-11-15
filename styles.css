@@ -43,8 +43,8 @@ h3 {
     position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
+    width: 100vw;
+    height: 100vh;
     background-color: rgba(0, 0, 0, 0.5);
     display: none;
     justify-content: center;
@@ -52,6 +52,7 @@ h3 {
     z-index: 10000;
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
+    margin-left: calc(-1 * var(--sidebar-offset, 0px));
 }
 
 .spotlight-container {
