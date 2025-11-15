@@ -289,16 +289,8 @@
                 }
             } else if (e.key === 'Enter') {
                 e.preventDefault();
-                const query = input.value.trim();
                 if (selectedResultIndex >= 0 && searchResults[selectedResultIndex]) {
                     openResult(searchResults[selectedResultIndex]);
-                } else if (query && searchResults.length === 0) {
-                    // Fallback to Chrome's default search engine
-                    chrome.runtime.sendMessage({
-                        action: 'searchWithDefaultEngine',
-                        query: query
-                    });
-                    closeModal();
                 }
             }
         });
@@ -349,8 +341,19 @@
             query: query
         }, (response) => {
             if (response && response.results) {
-                searchResults = response.results;
-                displayResults(response.results);
+                // Add web search fallback option when there are no results
+                const results = response.results;
+                if (results.length === 0) {
+                    results.push({
+                        title: `Search "${query}" on the web`,
+                        url: '',
+                        type: 'web-search',
+                        query: query,
+                        isWebSearch: true
+                    });
+                }
+                searchResults = results;
+                displayResults(results);
             }
         });
     }
@@ -360,7 +363,7 @@
         const resultsContainer = document.getElementById('arcify-search-results');
 
         if (results.length === 0) {
-            resultsContainer.innerHTML = '<div class="arcify-no-results">No results found<br><span style="font-size: 12px; color: #999; margin-top: 8px; display: inline-block;">Press <kbd class="arcify-kbd">↵</kbd> to search with default search engine</span></div>';
+            resultsContainer.innerHTML = '<div class="arcify-no-results">No results found</div>';
             return;
         }
 
@@ -373,12 +376,21 @@
             const iconElement = document.createElement('div');
             iconElement.className = 'arcify-search-result-icon';
 
-            const img = document.createElement('img');
-            img.src = result.favIconUrl || getFaviconUrl(result.url, "32");
-            img.onerror = () => {
-                img.src = getFaviconUrl(result.url, "32");
-            };
-            iconElement.appendChild(img);
+            // Use search icon for web search results
+            if (result.isWebSearch) {
+                iconElement.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="10" cy="10" r="6" stroke="currentColor" stroke-width="2"/>
+                    <path d="M15 15L20 20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>`;
+                iconElement.style.color = '#666';
+            } else {
+                const img = document.createElement('img');
+                img.src = result.favIconUrl || getFaviconUrl(result.url, "32");
+                img.onerror = () => {
+                    img.src = getFaviconUrl(result.url, "32");
+                };
+                iconElement.appendChild(img);
+            }
 
             const contentElement = document.createElement('div');
             contentElement.className = 'arcify-search-result-content';
@@ -389,7 +401,7 @@
 
             const urlElement = document.createElement('div');
             urlElement.className = 'arcify-search-result-url';
-            urlElement.textContent = result.url;
+            urlElement.textContent = result.url || 'Search with your default search engine';
 
             contentElement.appendChild(titleElement);
             contentElement.appendChild(urlElement);
@@ -433,10 +445,19 @@
 
     // Open result
     function openResult(result) {
-        chrome.runtime.sendMessage({
-            action: 'openSearchResult',
-            result: result
-        });
+        if (result.isWebSearch) {
+            // Handle web search
+            chrome.runtime.sendMessage({
+                action: 'searchWithDefaultEngine',
+                query: result.query
+            });
+        } else {
+            // Handle regular result
+            chrome.runtime.sendMessage({
+                action: 'openSearchResult',
+                result: result
+            });
+        }
         closeModal();
     }
 
