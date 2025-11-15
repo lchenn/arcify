@@ -401,7 +401,7 @@
 
             const urlElement = document.createElement('div');
             urlElement.className = 'arcify-search-result-url';
-            urlElement.textContent = result.url || 'Search with your default search engine';
+            urlElement.textContent = result.url || 'Search on the web';
 
             contentElement.appendChild(titleElement);
             contentElement.appendChild(urlElement);
