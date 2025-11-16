@@ -301,8 +301,26 @@
         });
     }
 
+    // Generate dynamic placeholder text based on enabled search sources
+    function getPlaceholderText(settings) {
+        const sources = [];
+        if (settings.searchTabs !== false) sources.push('tabs');
+        if (settings.searchBookmarks !== false) sources.push('bookmarks');
+        if (settings.searchHistory !== false) sources.push('history');
+
+        if (sources.length === 0) {
+            return 'Search...';
+        } else if (sources.length === 1) {
+            return `Search ${sources[0]}...`;
+        } else if (sources.length === 2) {
+            return `Search ${sources[0]} and ${sources[1]}...`;
+        } else {
+            return `Search ${sources.slice(0, -1).join(', ')}, and ${sources[sources.length - 1]}...`;
+        }
+    }
+
     // Open modal
-    function openModal() {
+    async function openModal() {
         const modal = document.getElementById('arcify-search-modal');
         const input = document.getElementById('arcify-search-input');
         const resultsContainer = document.getElementById('arcify-search-results');
@@ -312,6 +330,15 @@
         resultsContainer.innerHTML = '';
         selectedResultIndex = -1;
         searchResults = [];
+
+        // Get settings and update placeholder
+        try {
+            const settings = await chrome.storage.sync.get(['searchTabs', 'searchBookmarks', 'searchHistory']);
+            input.placeholder = getPlaceholderText(settings);
+        } catch (error) {
+            console.error('Error fetching search settings:', error);
+            input.placeholder = 'Search tabs, bookmarks, and history...';
+        }
 
         // Focus after a brief delay
         setTimeout(() => {

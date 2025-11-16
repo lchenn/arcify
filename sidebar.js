@@ -1736,7 +1736,10 @@ function handleTabUpdate(tabId, changeInfo, tab) {
            }
 
             if (changeInfo.url) {
-                tabElement.querySelector('.tab-favicon').src = Utils.getFaviconUrl(changeInfo.url);
+                const faviconElement = tabElement.querySelector('.tab-favicon');
+                if (faviconElement) {
+                    faviconElement.src = Utils.getFaviconUrl(changeInfo.url);
+                }
                 // Update bookmark URL if this is a pinned tab
                 if (tabElement.closest('[data-tab-type="pinned"]')) {
                     updateBookmarkForTab(tab, displayTitle);
@@ -2228,11 +2231,3 @@ document.addEventListener('keydown', (e) => {
         openSpotlight();
     }
 }, true); // Use capture phase to catch events before they bubble
-
-// Add event listener for search help button
-const searchHelpBtn = document.getElementById('searchHelpBtn');
-if (searchHelpBtn) {
-    searchHelpBtn.addEventListener('click', () => {
-        openSpotlight();
-    });
-}
