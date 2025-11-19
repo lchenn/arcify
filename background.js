@@ -65,6 +65,14 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     if (request.action === 'searchWithDefaultEngine') {
         searchWithDefaultEngine(request.query);
     }
+
+    // Handle getting pinned tabs
+    if (request.action === 'getPinnedTabs') {
+        getPinnedTabs().then(tabs => {
+            sendResponse({ tabs: tabs });
+        });
+        return true; // Keep message channel open for async response
+    }
 });
 
 // Helper function to check if URL can receive content scripts
@@ -528,4 +536,10 @@ async function searchWithDefaultEngine(query) {
             await chrome.tabs.create({ url: searchUrl });
         }
     }
+}
+
+async function getPinnedTabs() {
+    // Get all pinned tabs across all windows
+    const tabs = await chrome.tabs.query({ pinned: true });
+    return tabs;
 }

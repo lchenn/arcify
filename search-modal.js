@@ -265,9 +265,17 @@
         // Input event listener
         input.addEventListener('input', (e) => {
             clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => {
-                performSearch(e.target.value);
-            }, 200);
+            const query = e.target.value;
+
+            // If user starts typing, clear pinned tabs and perform search
+            if (query.trim()) {
+                searchTimeout = setTimeout(() => {
+                    performSearch(query);
+                }, 200);
+            } else {
+                // If search is cleared, show pinned tabs again
+                showPinnedTabs();
+            }
         });
 
         // Keyboard navigation
@@ -340,10 +348,33 @@
             input.placeholder = 'Search tabs, bookmarks, and history...';
         }
 
+        // Automatically show all pinned tabs
+        showPinnedTabs();
+
         // Focus after a brief delay
         setTimeout(() => {
             input.focus();
         }, 0);
+    }
+
+    // Show all pinned tabs
+    async function showPinnedTabs() {
+        chrome.runtime.sendMessage({
+            action: 'getPinnedTabs'
+        }, (response) => {
+            if (response && response.tabs) {
+                const pinnedResults = response.tabs.map(tab => ({
+                    title: tab.title,
+                    url: tab.url,
+                    type: 'pinned',
+                    favIconUrl: tab.favIconUrl,
+                    tabId: tab.id
+                }));
+
+                searchResults = pinnedResults;
+                displayResults(pinnedResults);
+            }
+        });
     }
 
     // Close modal
