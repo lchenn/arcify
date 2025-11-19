@@ -28,10 +28,11 @@ export default defineConfig({
       output: {
         entryFileNames: (chunkInfo) => {
           // Keep original names for main scripts
-          const mainScripts = ['background', 'sidebar-script', 'options-script', 'onboarding-script', 'utils', 'localstorage', 'chromeHelper', 'icons'];
+          const mainScripts = ['background', 'sidebar-script', 'options-script', 'onboarding-script', 'search-modal', 'utils', 'localstorage', 'chromeHelper', 'icons'];
           if (mainScripts.includes(chunkInfo.name)) {
             return chunkInfo.name === 'sidebar-script' ? 'sidebar.js' :
                    chunkInfo.name === 'options-script' ? 'options.js' :
+                   chunkInfo.name === 'search-modal' ? 'search-modal.js' :
                    `${chunkInfo.name}.js`;
           }
           return 'assets/[name]-[hash].js';
