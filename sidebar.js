@@ -66,31 +66,46 @@ async function updatePinnedFavicons() {
         }
     });
 
-    pinnedTabs.forEach(tab => {
+    for (const tab of pinnedTabs) {
         // Check if favicon element already exists for this tab
         const existingElement = pinnedFavicons.querySelector(`[data-tab-id="${tab.id}"]`);
+
+        // Get custom data from storage
+        const customData = await Utils.getPinnedTabCustomization(tab.id);
+        const displayTitle = customData?.customName || tab.title;
+        const displayFavicon = customData?.customFavicon || Utils.getFaviconUrl(tab.url, "96");
+
         if (!existingElement) {
             const faviconElement = document.createElement('div');
             faviconElement.className = 'pinned-favicon';
-            faviconElement.title = tab.title;
+            faviconElement.title = displayTitle;
             faviconElement.dataset.tabId = tab.id;
+            faviconElement.dataset.tabUrl = tab.url;
             faviconElement.draggable = true; // Make pinned favicon draggable
 
             const img = document.createElement('img');
-            img.src = Utils.getFaviconUrl(tab.url, "96");
+            img.src = displayFavicon;
             img.onerror = () => {
                 img.src = tab.favIconUrl;
                 img.onerror = () => { img.src = 'assets/default_icon.png'; }; // Fallback favicon
             };
-            img.alt = tab.title;
+            img.alt = displayTitle;
 
             faviconElement.appendChild(img);
+
             faviconElement.addEventListener('click', () => {
                 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
                 document.querySelectorAll('.pinned-favicon').forEach(t => t.classList.remove('active'));
                 // Add active class to clicked tab
                 faviconElement.classList.add('active');
                 chrome.tabs.update(tab.id, { active: true });
+            });
+
+            // Add right-click context menu for pinned favicon
+            faviconElement.addEventListener('contextmenu', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                showPinnedFaviconContextMenu(e.pageX, e.pageY, tab.id, tab.url, displayTitle, displayFavicon);
             });
 
             // Add drag event listeners for pinned favicon
@@ -103,8 +118,20 @@ async function updatePinnedFavicons() {
             });
 
             pinnedFavicons.appendChild(faviconElement);
+        } else {
+            // Update existing element with custom data
+            existingElement.title = displayTitle;
+            const img = existingElement.querySelector('img');
+            if (img) {
+                img.src = displayFavicon;
+                img.alt = displayTitle;
+                img.onerror = () => {
+                    img.src = tab.favIconUrl;
+                    img.onerror = () => { img.src = 'assets/default_icon.png'; };
+                };
+            }
         }
-    });
+    }
 
     // Show/hide placeholder based on whether there are pinned tabs
     const placeholderContainer = pinnedFavicons.querySelector('.pinned-placeholder-container');
@@ -139,6 +166,206 @@ async function updatePinnedFavicons() {
             draggingElement.remove();
         }
     });
+}
+
+// Function to show context menu for pinned favicon
+function showPinnedFaviconContextMenu(x, y, tabId, tabUrl, displayTitle, displayFavicon) {
+    // Remove any existing context menu
+    const existingMenu = document.querySelector('.pinned-favicon-context-menu');
+    if (existingMenu) {
+        existingMenu.remove();
+    }
+
+    const contextMenu = document.createElement('div');
+    contextMenu.className = 'pinned-favicon-context-menu context-menu';
+    contextMenu.style.position = 'fixed';
+    contextMenu.style.visibility = 'hidden'; // Hide initially to measure
+
+    // Edit option
+    const editOption = document.createElement('div');
+    editOption.className = 'context-menu-item';
+    editOption.innerHTML = '✏️ Edit Pinned Tab';
+    editOption.addEventListener('click', () => {
+        openPinnedTabEditModal(tabId, tabUrl, displayTitle, displayFavicon);
+        contextMenu.remove();
+    });
+
+    // Unpin option
+    const unpinOption = document.createElement('div');
+    unpinOption.className = 'context-menu-item';
+    unpinOption.innerHTML = '📌 Unpin Tab';
+    unpinOption.addEventListener('click', async () => {
+        await chrome.tabs.update(tabId, { pinned: false });
+        updatePinnedFavicons();
+        contextMenu.remove();
+    });
+
+    // Close tab option
+    const closeOption = document.createElement('div');
+    closeOption.className = 'context-menu-item';
+    closeOption.innerHTML = '× Close Tab';
+    closeOption.addEventListener('click', async () => {
+        await chrome.tabs.remove(tabId);
+        updatePinnedFavicons();
+        contextMenu.remove();
+    });
+
+    contextMenu.appendChild(editOption);
+    contextMenu.appendChild(unpinOption);
+    contextMenu.appendChild(closeOption);
+
+    document.body.appendChild(contextMenu);
+
+    // Measure menu dimensions and adjust position if needed
+    const menuRect = contextMenu.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    let finalX = x;
+    let finalY = y;
+
+    // Check if menu would overflow right edge
+    if (x + menuRect.width > viewportWidth) {
+        finalX = x - menuRect.width;
+    }
+
+    // Check if menu would overflow bottom edge
+    if (y + menuRect.height > viewportHeight) {
+        finalY = y - menuRect.height;
+    }
+
+    // Apply final position and make visible
+    contextMenu.style.left = `${finalX}px`;
+    contextMenu.style.top = `${finalY}px`;
+    contextMenu.style.visibility = 'visible';
+
+    // Close context menu when clicking outside
+    const closeContextMenu = (e) => {
+        if (!contextMenu.contains(e.target)) {
+            contextMenu.remove();
+            document.removeEventListener('click', closeContextMenu);
+        }
+    };
+    // Use setTimeout to avoid immediate closing from the current click event
+    setTimeout(() => {
+        document.addEventListener('click', closeContextMenu);
+    }, 0);
+}
+
+// Function to open edit modal for pinned tab
+function openPinnedTabEditModal(tabId, tabUrl, currentName, currentFavicon) {
+    // Create modal backdrop
+    const modalBackdrop = document.createElement('div');
+    modalBackdrop.className = 'pinned-edit-modal-backdrop';
+
+    // Create modal container
+    const modalContainer = document.createElement('div');
+    modalContainer.className = 'pinned-edit-modal-container';
+
+    // Create modal content
+    modalContainer.innerHTML = `
+        <div class="pinned-edit-modal-header">
+            <h3>Edit Pinned Tab</h3>
+            <button class="pinned-edit-modal-close">&times;</button>
+        </div>
+        <div class="pinned-edit-modal-body">
+            <div class="pinned-edit-form-group">
+                <label for="pinnedTabName">Display Name</label>
+                <input type="text" id="pinnedTabName" class="pinned-edit-input" value="${currentName}" placeholder="Tab name">
+            </div>
+            <div class="pinned-edit-form-group">
+                <label for="pinnedTabFavicon">Favicon URL (optional)</label>
+                <input type="text" id="pinnedTabFavicon" class="pinned-edit-input" value="${currentFavicon}" placeholder="https://example.com/favicon.ico">
+                <small class="pinned-edit-help-text">Leave empty to use default favicon</small>
+            </div>
+            <div class="pinned-edit-preview">
+                <div class="pinned-edit-preview-label">Preview:</div>
+                <div class="pinned-favicon preview">
+                    <img src="${currentFavicon}" alt="${currentName}">
+                </div>
+            </div>
+        </div>
+        <div class="pinned-edit-modal-footer">
+            <button class="pinned-edit-btn pinned-edit-btn-secondary" id="pinnedTabReset">Reset to Default</button>
+            <button class="pinned-edit-btn pinned-edit-btn-primary" id="pinnedTabSave">Save</button>
+        </div>
+    `;
+
+    modalBackdrop.appendChild(modalContainer);
+    document.body.appendChild(modalBackdrop);
+
+    // Get elements
+    const nameInput = document.getElementById('pinnedTabName');
+    const faviconInput = document.getElementById('pinnedTabFavicon');
+    const previewImg = modalContainer.querySelector('.pinned-edit-preview img');
+    const closeBtn = modalContainer.querySelector('.pinned-edit-modal-close');
+    const saveBtn = document.getElementById('pinnedTabSave');
+    const resetBtn = document.getElementById('pinnedTabReset');
+
+    // Update preview on favicon input change
+    faviconInput.addEventListener('input', () => {
+        const newFavicon = faviconInput.value.trim() || Utils.getFaviconUrl(tabUrl, "96");
+        previewImg.src = newFavicon;
+        previewImg.onerror = () => {
+            previewImg.src = Utils.getFaviconUrl(tabUrl, "96");
+        };
+    });
+
+    // Update preview on name input change
+    nameInput.addEventListener('input', () => {
+        previewImg.alt = nameInput.value.trim() || currentName;
+    });
+
+    // Close modal function
+    const closeModal = () => {
+        modalBackdrop.remove();
+    };
+
+    // Close button
+    closeBtn.addEventListener('click', closeModal);
+
+    // Close on backdrop click
+    modalBackdrop.addEventListener('click', (e) => {
+        if (e.target === modalBackdrop) {
+            closeModal();
+        }
+    });
+
+    // Close on ESC key
+    const escHandler = (e) => {
+        if (e.key === 'Escape') {
+            closeModal();
+            document.removeEventListener('keydown', escHandler);
+        }
+    };
+    document.addEventListener('keydown', escHandler);
+
+    // Save button
+    saveBtn.addEventListener('click', async () => {
+        const customName = nameInput.value.trim();
+        const customFavicon = faviconInput.value.trim();
+
+        await Utils.setPinnedTabCustomization(
+            tabId,
+            customName || null,
+            customFavicon || null
+        );
+
+        await updatePinnedFavicons();
+        closeModal();
+    });
+
+    // Reset button
+    resetBtn.addEventListener('click', async () => {
+        if (confirm('Reset this pinned tab to default name and favicon?')) {
+            await Utils.removePinnedTabCustomization(tabId);
+            await updatePinnedFavicons();
+            closeModal();
+        }
+    });
+
+    // Focus name input
+    setTimeout(() => nameInput.focus(), 0);
 }
 
 // Initialize the sidebar when the DOM is loaded

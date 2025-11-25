@@ -298,6 +298,48 @@ const Utils = {
         }
         return false; // Bookmark not found
     },
+
+    // Get all custom pinned tab data
+    getPinnedTabCustomizations: async function() {
+        const result = await chrome.storage.local.get('pinnedTabCustomizations');
+        return result.pinnedTabCustomizations || {};
+    },
+
+    // Save all custom pinned tab data
+    savePinnedTabCustomizations: async function(customizations) {
+        await chrome.storage.local.set({ pinnedTabCustomizations: customizations });
+    },
+
+    // Set or update customization for a pinned tab
+    setPinnedTabCustomization: async function(tabId, customName, customFavicon) {
+        if (!tabId) return;
+
+        const customizations = await this.getPinnedTabCustomizations();
+        customizations[tabId] = {
+            customName: customName || null,
+            customFavicon: customFavicon || null
+        };
+        await this.savePinnedTabCustomizations(customizations);
+        console.log(`Customization set for pinned tab ${tabId}`);
+    },
+
+    // Get customization for a specific pinned tab
+    getPinnedTabCustomization: async function(tabId) {
+        const customizations = await this.getPinnedTabCustomizations();
+        return customizations[tabId] || null;
+    },
+
+    // Remove customization for a pinned tab
+    removePinnedTabCustomization: async function(tabId) {
+        if (!tabId) return;
+
+        const customizations = await this.getPinnedTabCustomizations();
+        if (customizations[tabId]) {
+            delete customizations[tabId];
+            await this.savePinnedTabCustomizations(customizations);
+            console.log(`Customization removed for pinned tab ${tabId}`);
+        }
+    },
 }
 
 export { Utils };
