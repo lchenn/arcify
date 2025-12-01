@@ -55,6 +55,10 @@ async function updatePinnedFavicons() {
     const pinnedFavicons = document.getElementById('pinnedFavicons');
     const pinnedTabs = await chrome.tabs.query({ pinned: true });
 
+    // Get settings to check if text should be shown
+    const settings = await Utils.getSettings();
+    const showPinnedTabText = settings.showPinnedTabText !== false; // Default to true
+
     // Remove favicon elements for tabs that are no longer pinned
     Array.from(pinnedFavicons.children).forEach(element => {
         // Only remove elements that are pinned favicons (have the pinned-favicon class)
@@ -78,6 +82,9 @@ async function updatePinnedFavicons() {
         if (!existingElement) {
             const faviconElement = document.createElement('div');
             faviconElement.className = 'pinned-favicon';
+            if (showPinnedTabText) {
+                faviconElement.classList.add('with-text');
+            }
             faviconElement.title = displayTitle;
             faviconElement.dataset.tabId = tab.id;
             faviconElement.dataset.tabUrl = tab.url;
@@ -92,6 +99,14 @@ async function updatePinnedFavicons() {
             img.alt = displayTitle;
 
             faviconElement.appendChild(img);
+
+            // Add text label if setting is enabled
+            if (showPinnedTabText) {
+                const textLabel = document.createElement('span');
+                textLabel.className = 'pinned-favicon-text';
+                textLabel.textContent = displayTitle;
+                faviconElement.appendChild(textLabel);
+            }
 
             faviconElement.addEventListener('click', () => {
                 document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -119,8 +134,16 @@ async function updatePinnedFavicons() {
 
             pinnedFavicons.appendChild(faviconElement);
         } else {
-            // Update existing element with custom data
+            // Update existing element with custom data and text setting
             existingElement.title = displayTitle;
+
+            // Update classes based on setting
+            if (showPinnedTabText) {
+                existingElement.classList.add('with-text');
+            } else {
+                existingElement.classList.remove('with-text');
+            }
+
             const img = existingElement.querySelector('img');
             if (img) {
                 img.src = displayFavicon;
@@ -129,6 +152,21 @@ async function updatePinnedFavicons() {
                     img.src = tab.favIconUrl;
                     img.onerror = () => { img.src = 'assets/default_icon.png'; };
                 };
+            }
+
+            // Update or add/remove text label based on setting
+            let textLabel = existingElement.querySelector('.pinned-favicon-text');
+            if (showPinnedTabText) {
+                if (!textLabel) {
+                    textLabel = document.createElement('span');
+                    textLabel.className = 'pinned-favicon-text';
+                    existingElement.appendChild(textLabel);
+                }
+                textLabel.textContent = displayTitle;
+            } else {
+                if (textLabel) {
+                    textLabel.remove();
+                }
             }
         }
     }
@@ -395,6 +433,14 @@ document.addEventListener('DOMContentLoaded', () => {
             placeholderContainer.style.display = 'none';
         });
     }
+
+    // Listen for storage changes to update pinned favicons when settings change
+    chrome.storage.onChanged.addListener((changes, namespace) => {
+        if (namespace === 'sync' && changes.showPinnedTabText) {
+            console.log('Show pinned tab text setting changed, updating favicons...');
+            updatePinnedFavicons();
+        }
+    });
 
     // --- Space Switching with Trackpad Swipe ---
     let isSwiping = false;

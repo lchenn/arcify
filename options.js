@@ -8,6 +8,7 @@ async function saveOptions() {
   const searchTabsCheckbox = document.getElementById('searchTabs');
   const searchBookmarksCheckbox = document.getElementById('searchBookmarks');
   const searchHistoryCheckbox = document.getElementById('searchHistory');
+  const showPinnedTabTextCheckbox = document.getElementById('showPinnedTabText');
 
   const settings = {
     defaultSpaceName: defaultSpaceName || 'Home',
@@ -16,6 +17,7 @@ async function saveOptions() {
     searchTabs: searchTabsCheckbox.checked,
     searchBookmarks: searchBookmarksCheckbox.checked,
     searchHistory: searchHistoryCheckbox.checked,
+    showPinnedTabText: showPinnedTabTextCheckbox.checked,
   };
 
   try {
@@ -48,6 +50,7 @@ async function restoreOptions() {
     const searchTabsCheckbox = document.getElementById('searchTabs');
     const searchBookmarksCheckbox = document.getElementById('searchBookmarks');
     const searchHistoryCheckbox = document.getElementById('searchHistory');
+    const showPinnedTabTextCheckbox = document.getElementById('showPinnedTabText');
 
     defaultSpaceName.value = settings.defaultSpaceName;
     autoArchiveEnabledCheckbox.checked = settings.autoArchiveEnabled;
@@ -55,6 +58,7 @@ async function restoreOptions() {
     searchTabsCheckbox.checked = settings.searchTabs !== false; // Default to true
     searchBookmarksCheckbox.checked = settings.searchBookmarks !== false; // Default to true
     searchHistoryCheckbox.checked = settings.searchHistory !== false; // Default to true
+    showPinnedTabTextCheckbox.checked = settings.showPinnedTabText !== false; // Default to true
 }
 
 // Function to open Chrome's keyboard shortcuts page
