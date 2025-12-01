@@ -988,8 +988,20 @@ async function setActiveSpace(spaceId, updateTab = true) {
     if (!tabGroupForSpace) {
         isCreatingSpace = true;
         const space = spaces.find(s => s.id === spaceId);
-        const newTab = await ChromeHelper.createNewTab();
-        const groupId = await ChromeHelper.createNewTabGroup(newTab, space.name, space.color);
+
+        // Try to find an existing tab group with the same name to reuse
+        const existingGroupWithSameName = tabGroups.find(g => g.title === space.name);
+
+        let groupId;
+        if (existingGroupWithSameName) {
+            // Reuse the existing group
+            groupId = existingGroupWithSameName.id;
+            await chrome.tabGroups.update(groupId, { color: space.color });
+        } else {
+            // Create a new tab group only if none exists
+            const newTab = await ChromeHelper.createNewTab();
+            groupId = await ChromeHelper.createNewTabGroup(newTab, space.name, space.color);
+        }
 
         // update spaceId with new groupId
         spaces = spaces.map(s => {
