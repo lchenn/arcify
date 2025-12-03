@@ -50,6 +50,22 @@ async function updateBookmarkForTab(tab, bookmarkTitle) {
 
 console.log("hi");
 
+// Function to sync all pinned tabs to bookmarks on startup
+async function syncAllPinnedTabsToBookmarks() {
+    try {
+        const pinnedTabs = await chrome.tabs.query({ pinned: true });
+        console.log(`Syncing ${pinnedTabs.length} pinned tabs to bookmarks...`);
+
+        for (const tab of pinnedTabs) {
+            await Utils.syncPinnedTabToBookmark(tab);
+        }
+
+        console.log('All pinned tabs synced to bookmarks');
+    } catch (error) {
+        console.error('Error syncing pinned tabs to bookmarks:', error);
+    }
+}
+
 // Function to update pinned favicons
 async function updatePinnedFavicons() {
     const pinnedFavicons = document.getElementById('pinnedFavicons');
@@ -234,6 +250,8 @@ function showPinnedFaviconContextMenu(x, y, tabId, tabUrl, displayTitle, display
     unpinOption.innerHTML = '📌 Unpin Tab';
     unpinOption.addEventListener('click', async () => {
         await chrome.tabs.update(tabId, { pinned: false });
+        // Remove bookmark when unpinning
+        await Utils.removePinnedTabFromBookmarks(tabUrl);
         updatePinnedFavicons();
         contextMenu.remove();
     });
@@ -389,6 +407,11 @@ function openPinnedTabEditModal(tabId, tabUrl, currentName, currentFavicon) {
             customFavicon || null
         );
 
+        // Update bookmark with the new custom name if it exists
+        if (customName) {
+            await Utils.updatePinnedTabBookmark(tabId, tabUrl, customName);
+        }
+
         await updatePinnedFavicons();
         closeModal();
     });
@@ -397,6 +420,11 @@ function openPinnedTabEditModal(tabId, tabUrl, currentName, currentFavicon) {
     resetBtn.addEventListener('click', async () => {
         if (confirm('Reset this pinned tab to default name and favicon?')) {
             await Utils.removePinnedTabCustomization(tabId);
+            // Also restore bookmark to original title
+            const tab = await chrome.tabs.get(tabId);
+            if (tab) {
+                await Utils.updatePinnedTabBookmark(tabId, tabUrl, tab.title);
+            }
             await updatePinnedFavicons();
             closeModal();
         }
@@ -411,12 +439,21 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM loaded, initializing sidebar...');
     initSidebar();
     updatePinnedFavicons(); // Initial load of pinned favicons
+    syncAllPinnedTabsToBookmarks(); // Sync existing pinned tabs to bookmarks on startup
 
     // Add Chrome tab event listeners
     chrome.tabs.onCreated.addListener(handleTabCreated);
     chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
         handleTabUpdate(tabId, changeInfo, tab);
-        if (tab.pinned) updatePinnedFavicons(); // Update favicons when a tab is pinned/unpinned
+
+        // Handle pinned tab changes
+        if (changeInfo.pinned !== undefined) {
+            if (changeInfo.pinned) {
+                // Tab was just pinned - sync to bookmarks
+                Utils.syncPinnedTabToBookmark(tab);
+            }
+            updatePinnedFavicons(); // Update favicons when a tab is pinned/unpinned
+        }
     });
     chrome.tabs.onRemoved.addListener(handleTabRemove);
     // chrome.tabs.onMoved.addListener(handleTabMove);

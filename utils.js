@@ -340,6 +340,107 @@ const Utils = {
             console.log(`Customization removed for pinned tab ${tabId}`);
         }
     },
+
+    // Get or create the "Pinned Tabs" bookmark folder
+    getOrCreatePinnedTabsFolder: async function() {
+        const PINNED_TABS_FOLDER_NAME = 'Pinned Tabs';
+
+        try {
+            const arcifyFolder = await LocalStorage.getOrCreateArcifyFolder();
+            const children = await chrome.bookmarks.getChildren(arcifyFolder.id);
+
+            let pinnedTabsFolder = children.find(child =>
+                child.title === PINNED_TABS_FOLDER_NAME && !child.url
+            );
+
+            if (!pinnedTabsFolder) {
+                pinnedTabsFolder = await chrome.bookmarks.create({
+                    parentId: arcifyFolder.id,
+                    title: PINNED_TABS_FOLDER_NAME
+                });
+                console.log(`Created Pinned Tabs folder: ${pinnedTabsFolder.id}`);
+            }
+
+            return pinnedTabsFolder;
+        } catch (error) {
+            console.error('Error getting or creating Pinned Tabs folder:', error);
+            return null;
+        }
+    },
+
+    // Sync pinned tab to bookmarks
+    syncPinnedTabToBookmark: async function(tab) {
+        if (!tab || !tab.url) return;
+
+        try {
+            const pinnedTabsFolder = await this.getOrCreatePinnedTabsFolder();
+            if (!pinnedTabsFolder) return;
+
+            const customData = await this.getPinnedTabCustomization(tab.id);
+            const bookmarkTitle = customData?.customName || tab.title || tab.url;
+
+            const existingBookmarks = await chrome.bookmarks.getChildren(pinnedTabsFolder.id);
+            const existingBookmark = existingBookmarks.find(b => b.url === tab.url);
+
+            if (existingBookmark) {
+                await chrome.bookmarks.update(existingBookmark.id, {
+                    title: bookmarkTitle
+                });
+                console.log(`Updated pinned tab bookmark: ${bookmarkTitle}`);
+            } else {
+                await chrome.bookmarks.create({
+                    parentId: pinnedTabsFolder.id,
+                    title: bookmarkTitle,
+                    url: tab.url
+                });
+                console.log(`Created pinned tab bookmark: ${bookmarkTitle}`);
+            }
+        } catch (error) {
+            console.error('Error syncing pinned tab to bookmark:', error);
+        }
+    },
+
+    // Remove pinned tab from bookmarks
+    removePinnedTabFromBookmarks: async function(tabUrl) {
+        if (!tabUrl) return;
+
+        try {
+            const pinnedTabsFolder = await this.getOrCreatePinnedTabsFolder();
+            if (!pinnedTabsFolder) return;
+
+            const bookmarks = await chrome.bookmarks.getChildren(pinnedTabsFolder.id);
+            const bookmark = bookmarks.find(b => b.url === tabUrl);
+
+            if (bookmark) {
+                await chrome.bookmarks.remove(bookmark.id);
+                console.log(`Removed pinned tab bookmark for: ${tabUrl}`);
+            }
+        } catch (error) {
+            console.error('Error removing pinned tab from bookmarks:', error);
+        }
+    },
+
+    // Update pinned tab bookmark when customization changes
+    updatePinnedTabBookmark: async function(tabId, tabUrl, newTitle) {
+        if (!tabUrl) return;
+
+        try {
+            const pinnedTabsFolder = await this.getOrCreatePinnedTabsFolder();
+            if (!pinnedTabsFolder) return;
+
+            const bookmarks = await chrome.bookmarks.getChildren(pinnedTabsFolder.id);
+            const bookmark = bookmarks.find(b => b.url === tabUrl);
+
+            if (bookmark && newTitle) {
+                await chrome.bookmarks.update(bookmark.id, {
+                    title: newTitle
+                });
+                console.log(`Updated pinned tab bookmark title to: ${newTitle}`);
+            }
+        } catch (error) {
+            console.error('Error updating pinned tab bookmark:', error);
+        }
+    },
 }
 
 export { Utils };
