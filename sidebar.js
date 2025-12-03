@@ -957,7 +957,14 @@ async function updateSpaceSwitcher() {
     // Inactive space from bookmarks
     const arcifyFolder = await LocalStorage.getOrCreateArcifyFolder();
     const spaceFolders = await chrome.bookmarks.getChildren(arcifyFolder.id);
+    const PINNED_TABS_FOLDER_NAME = 'Pinned Tabs';
+
     spaceFolders.forEach(spaceFolder => {
+        // Skip the Pinned Tabs folder - it's not a space
+        if (spaceFolder.title === PINNED_TABS_FOLDER_NAME) {
+            return;
+        }
+
         if(spaces.find(space => space.name == spaceFolder.title)) {
             return;
         } else {
