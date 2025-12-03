@@ -50,22 +50,6 @@ async function updateBookmarkForTab(tab, bookmarkTitle) {
 
 console.log("hi");
 
-// Function to sync all pinned tabs to bookmarks on startup
-async function syncAllPinnedTabsToBookmarks() {
-    try {
-        const pinnedTabs = await chrome.tabs.query({ pinned: true });
-        console.log(`Syncing ${pinnedTabs.length} pinned tabs to bookmarks...`);
-
-        for (const tab of pinnedTabs) {
-            await Utils.syncPinnedTabToBookmark(tab);
-        }
-
-        console.log('All pinned tabs synced to bookmarks');
-    } catch (error) {
-        console.error('Error syncing pinned tabs to bookmarks:', error);
-    }
-}
-
 // Function to update pinned favicons
 async function updatePinnedFavicons() {
     const pinnedFavicons = document.getElementById('pinnedFavicons');
@@ -439,7 +423,9 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM loaded, initializing sidebar...');
     initSidebar();
     updatePinnedFavicons(); // Initial load of pinned favicons
-    syncAllPinnedTabsToBookmarks(); // Sync existing pinned tabs to bookmarks on startup
+
+    // Restore pinned tabs from bookmarks on startup
+    Utils.restorePinnedTabsFromBookmarks();
 
     // Add Chrome tab event listeners
     chrome.tabs.onCreated.addListener(handleTabCreated);

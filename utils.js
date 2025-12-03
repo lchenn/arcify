@@ -441,6 +441,46 @@ const Utils = {
             console.error('Error updating pinned tab bookmark:', error);
         }
     },
+
+    // Restore pinned tabs from bookmarks
+    restorePinnedTabsFromBookmarks: async function() {
+        try {
+            const pinnedTabsFolder = await this.getOrCreatePinnedTabsFolder();
+            if (!pinnedTabsFolder) return;
+
+            const bookmarks = await chrome.bookmarks.getChildren(pinnedTabsFolder.id);
+            const allTabs = await chrome.tabs.query({});
+
+            console.log(`Restoring ${bookmarks.length} pinned tabs from bookmarks...`);
+
+            for (const bookmark of bookmarks) {
+                if (!bookmark.url) continue;
+
+                // Check if tab with this URL already exists
+                const existingTab = allTabs.find(tab => tab.url === bookmark.url);
+
+                if (existingTab) {
+                    // Tab exists but is not pinned - pin it
+                    if (!existingTab.pinned) {
+                        await chrome.tabs.update(existingTab.id, { pinned: true });
+                        console.log(`Pinned existing tab: ${bookmark.title}`);
+                    }
+                } else {
+                    // Tab doesn't exist - create and pin it
+                    const newTab = await chrome.tabs.create({
+                        url: bookmark.url,
+                        pinned: true,
+                        active: false
+                    });
+                    console.log(`Created and pinned new tab: ${bookmark.title}`);
+                }
+            }
+
+            console.log('Finished restoring pinned tabs from bookmarks');
+        } catch (error) {
+            console.error('Error restoring pinned tabs from bookmarks:', error);
+        }
+    },
 }
 
 export { Utils };
