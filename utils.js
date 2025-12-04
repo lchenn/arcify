@@ -450,23 +450,53 @@ const Utils = {
 
             const bookmarks = await chrome.bookmarks.getChildren(pinnedTabsFolder.id);
             const allTabs = await chrome.tabs.query({});
+            const pinnedTabs = allTabs.filter(tab => tab.pinned);
 
             console.log(`Restoring ${bookmarks.length} pinned tabs from bookmarks...`);
+
+            // Track which pinned tabs have been matched to bookmarks
+            const matchedPinnedTabIds = new Set();
 
             for (const bookmark of bookmarks) {
                 if (!bookmark.url) continue;
 
-                // Check if tab with this URL already exists
-                const existingTab = allTabs.find(tab => tab.url === bookmark.url);
+                // First, check if there's already a pinned tab with this URL
+                const pinnedTabWithUrl = pinnedTabs.find(tab =>
+                    tab.url === bookmark.url && !matchedPinnedTabIds.has(tab.id)
+                );
 
-                if (existingTab) {
+                if (pinnedTabWithUrl) {
+                    // Already exists as pinned tab with correct URL - mark as matched
+                    matchedPinnedTabIds.add(pinnedTabWithUrl.id);
+                    console.log(`Pinned tab already exists: ${bookmark.title}`);
+                    continue;
+                }
+
+                // Check if there's a non-pinned tab with this URL
+                const unpinnedTabWithUrl = allTabs.find(tab =>
+                    tab.url === bookmark.url && !tab.pinned
+                );
+
+                if (unpinnedTabWithUrl) {
                     // Tab exists but is not pinned - pin it
-                    if (!existingTab.pinned) {
-                        await chrome.tabs.update(existingTab.id, { pinned: true });
-                        console.log(`Pinned existing tab: ${bookmark.title}`);
-                    }
+                    await chrome.tabs.update(unpinnedTabWithUrl.id, { pinned: true });
+                    console.log(`Pinned existing tab: ${bookmark.title}`);
+                    continue;
+                }
+
+                // Check if there's a pinned tab that hasn't been matched yet
+                // (could have been navigated to a different URL)
+                const unmatchedPinnedTab = pinnedTabs.find(tab =>
+                    !matchedPinnedTabIds.has(tab.id)
+                );
+
+                if (unmatchedPinnedTab) {
+                    // Reuse this pinned tab by navigating it to the bookmark URL
+                    await chrome.tabs.update(unmatchedPinnedTab.id, { url: bookmark.url });
+                    matchedPinnedTabIds.add(unmatchedPinnedTab.id);
+                    console.log(`Reused pinned tab and navigated to: ${bookmark.title}`);
                 } else {
-                    // Tab doesn't exist - create and pin it
+                    // No existing tab found - create and pin a new one
                     const newTab = await chrome.tabs.create({
                         url: bookmark.url,
                         pinned: true,
