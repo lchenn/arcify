@@ -73,6 +73,17 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         });
         return true; // Keep message channel open for async response
     }
+
+    // Handle switching to a tab from the modal
+    if (request.action === 'switchToTabFromModal') {
+        chrome.tabs.update(request.tabId, { active: true });
+        isCycling = false;
+        currentCycleIndex = 0;
+        if (cyclingTimeout) {
+            clearTimeout(cyclingTimeout);
+            cyclingTimeout = null;
+        }
+    }
 });
 
 // Helper function to check if URL can receive content scripts
@@ -169,9 +180,23 @@ chrome.commands.onCommand.addListener(async function(command) {
         const targetTabId = tabHistory[currentCycleIndex];
 
         try {
+            // Get the target tab to access its details
+            const targetTab = await chrome.tabs.get(targetTabId);
+
             // Switch to the selected tab
             await chrome.tabs.update(targetTabId, { active: true });
             console.log(`Cycled to tab: ${targetTabId} (index ${currentCycleIndex}/${tabHistory.length})`);
+
+            // Send message to show/update tab switcher modal
+            try {
+                await chrome.tabs.sendMessage(targetTab.id, {
+                    action: currentCycleIndex === 1 ? 'showTabSwitcher' : 'updateTabSwitcher',
+                    tabHistory: tabHistory,
+                    currentIndex: currentCycleIndex
+                });
+            } catch (error) {
+                console.log("Could not show tab switcher modal:", error.message);
+            }
         } catch (error) {
             console.log("Error switching to tab:", error.message);
             // Remove invalid tab and try again
@@ -190,6 +215,15 @@ chrome.commands.onCommand.addListener(async function(command) {
             isCycling = false;
             currentCycleIndex = 0;
             console.log("Cycling state reset");
+
+            // Hide the tab switcher modal
+            chrome.tabs.query({ active: true, currentWindow: true }).then(([activeTab]) => {
+                if (activeTab) {
+                    chrome.tabs.sendMessage(activeTab.id, {
+                        action: 'hideTabSwitcher'
+                    }).catch(() => {});
+                }
+            });
         }, 2000);
     }
 });
@@ -389,6 +423,13 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
 
     // Update tab history for cycling through recent tabs
     const tabId = activeInfo.tabId;
+
+    // Don't update history if we're in the middle of cycling
+    // This prevents the history from being reordered while the user is cycling through tabs
+    if (isCycling) {
+        console.log("Skipping history update during cycling");
+        return;
+    }
 
     // Remove the tab if it's already in history (to move it to the front)
     const existingIndex = tabHistory.indexOf(tabId);

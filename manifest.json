@@ -26,7 +26,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["search-modal.js"],
+      "js": ["search-modal.js", "tab-switcher-modal.js"],
       "run_at": "document_end",
       "all_frames": false
     }

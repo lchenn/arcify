@@ -23,6 +23,7 @@ export default defineConfig({
         'options-script': resolve(__dirname, 'options.js'),
         'onboarding-script': resolve(__dirname, 'onboarding.js'),
         'search-modal': resolve(__dirname, 'search-modal.js'),
+        'tab-switcher-modal': resolve(__dirname, 'tab-switcher-modal.js'),
         utils: resolve(__dirname, 'utils.js'),
         localstorage: resolve(__dirname, 'localstorage.js'),
         chromeHelper: resolve(__dirname, 'chromeHelper.js'),

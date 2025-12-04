@@ -20,6 +20,7 @@ export default defineConfig({
         'options-script': resolve(__dirname, 'options.js'),
         'onboarding-script': resolve(__dirname, 'onboarding.js'),
         'search-modal': resolve(__dirname, 'search-modal.js'),
+        'tab-switcher-modal': resolve(__dirname, 'tab-switcher-modal.js'),
         utils: resolve(__dirname, 'utils.js'),
         localstorage: resolve(__dirname, 'localstorage.js'),
         chromeHelper: resolve(__dirname, 'chromeHelper.js'),
@@ -28,11 +29,12 @@ export default defineConfig({
       output: {
         entryFileNames: (chunkInfo) => {
           // Keep original names for main scripts
-          const mainScripts = ['background', 'sidebar-script', 'options-script', 'onboarding-script', 'search-modal', 'utils', 'localstorage', 'chromeHelper', 'icons'];
+          const mainScripts = ['background', 'sidebar-script', 'options-script', 'onboarding-script', 'search-modal', 'tab-switcher-modal', 'utils', 'localstorage', 'chromeHelper', 'icons'];
           if (mainScripts.includes(chunkInfo.name)) {
             return chunkInfo.name === 'sidebar-script' ? 'sidebar.js' :
                    chunkInfo.name === 'options-script' ? 'options.js' :
                    chunkInfo.name === 'search-modal' ? 'search-modal.js' :
+                   chunkInfo.name === 'tab-switcher-modal' ? 'tab-switcher-modal.js' :
                    `${chunkInfo.name}.js`;
           }
           return 'assets/[name]-[hash].js';
