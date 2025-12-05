@@ -187,13 +187,47 @@ chrome.commands.onCommand.addListener(async function(command) {
             await chrome.tabs.update(targetTabId, { active: true });
             console.log(`Cycled to tab: ${targetTabId} (index ${currentCycleIndex}/${tabHistory.length})`);
 
-            // Send message to show/update tab switcher modal
+            // Gather details for all tabs in history
+            const tabDetails = [];
+            for (const tabId of tabHistory) {
+                try {
+                    const tab = await chrome.tabs.get(tabId);
+                    tabDetails.push({
+                        id: tab.id,
+                        title: tab.title,
+                        url: tab.url,
+                        favIconUrl: tab.favIconUrl,
+                        windowId: tab.windowId,
+                        active: tab.active
+                    });
+                } catch (error) {
+                    console.log(`Tab ${tabId} no longer exists`);
+                }
+            }
+
+            // Send message to show/update tab switcher modal to ALL tabs in current window
+            // This ensures the modal appears no matter which tab you're viewing
             try {
-                await chrome.tabs.sendMessage(targetTab.id, {
-                    action: currentCycleIndex === 1 ? 'showTabSwitcher' : 'updateTabSwitcher',
-                    tabHistory: tabHistory,
-                    currentIndex: currentCycleIndex
-                });
+                const allTabsInWindow = await chrome.tabs.query({ windowId: targetTab.windowId });
+                let successCount = 0;
+
+                for (const tab of allTabsInWindow) {
+                    try {
+                        // Only send to tabs that can receive content scripts
+                        if (canInjectContentScript(tab.url)) {
+                            await chrome.tabs.sendMessage(tab.id, {
+                                action: 'showTabSwitcher',
+                                tabDetails: tabDetails,
+                                currentIndex: currentCycleIndex
+                            });
+                            successCount++;
+                        }
+                    } catch (error) {
+                        // Tab might not have content script loaded yet, that's okay
+                    }
+                }
+
+                console.log("Tab switcher modal message sent to", successCount, "tabs", { currentIndex: currentCycleIndex, tabCount: tabDetails.length });
             } catch (error) {
                 console.log("Could not show tab switcher modal:", error.message);
             }

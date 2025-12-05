@@ -213,8 +213,8 @@ class TabSwitcherModal {
         document.body.appendChild(this.modal);
     }
 
-    async show(tabHistory, currentIndex) {
-        this.tabHistory = tabHistory;
+    async show(tabDetails, currentIndex) {
+        this.tabDetails = tabDetails;
         this.currentIndex = currentIndex;
         this.isVisible = true;
 
@@ -226,17 +226,6 @@ class TabSwitcherModal {
         if (this.hideTimeout) {
             clearTimeout(this.hideTimeout);
             this.hideTimeout = null;
-        }
-
-        // Fetch tab details
-        const tabDetails = [];
-        for (const tabId of tabHistory) {
-            try {
-                const tab = await chrome.tabs.get(tabId);
-                tabDetails.push(tab);
-            } catch (error) {
-                console.log(`Tab ${tabId} no longer exists`);
-            }
         }
 
         // Update modal content
@@ -264,27 +253,11 @@ class TabSwitcherModal {
                 item.classList.add('selected');
             }
 
-            // Create thumbnail
+            // Create thumbnail with placeholder icon
             const thumbnail = document.createElement('div');
             thumbnail.className = 'arcify-tab-switcher-thumbnail';
 
-            // Try to capture tab screenshot
-            if (chrome.tabs.captureVisibleTab) {
-                // Note: This only works for the active tab in the current window
-                // For now, we'll use a placeholder for non-active tabs
-                if (tab.active) {
-                    chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' }, (dataUrl) => {
-                        if (dataUrl) {
-                            const img = document.createElement('img');
-                            img.src = dataUrl;
-                            thumbnail.innerHTML = '';
-                            thumbnail.appendChild(img);
-                        }
-                    });
-                }
-            }
-
-            // Placeholder icon
+            // Placeholder icon (chrome.tabs API not available in content scripts)
             const placeholderIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
             placeholderIcon.classList.add('arcify-tab-switcher-thumbnail-placeholder');
             placeholderIcon.setAttribute('viewBox', '0 0 24 24');
@@ -381,13 +354,22 @@ class TabSwitcherModal {
 // Initialize modal
 const tabSwitcherModal = new TabSwitcherModal();
 
+console.log('[Arcify Tab Switcher] Content script loaded');
+
 // Listen for messages from background script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    console.log('[Arcify Tab Switcher] Received message:', request.action);
+
     if (request.action === 'showTabSwitcher') {
-        tabSwitcherModal.show(request.tabHistory, request.currentIndex);
+        console.log('[Arcify Tab Switcher] Showing modal with', request.tabDetails?.length, 'tabs at index', request.currentIndex);
+        tabSwitcherModal.show(request.tabDetails, request.currentIndex);
         tabSwitcherModal.scheduleHide(1500);
     } else if (request.action === 'updateTabSwitcher') {
-        tabSwitcherModal.updateSelection(request.currentIndex);
+        if (request.tabDetails) {
+            tabSwitcherModal.show(request.tabDetails, request.currentIndex);
+        } else {
+            tabSwitcherModal.updateSelection(request.currentIndex);
+        }
         tabSwitcherModal.scheduleHide(1500);
     } else if (request.action === 'hideTabSwitcher') {
         tabSwitcherModal.hide();
