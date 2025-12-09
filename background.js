@@ -10,6 +10,26 @@ let currentCycleIndex = 0; // Current position in the cycle
 let isCycling = false; // Whether user is currently cycling through tabs
 let cyclingTimeout = null; // Timeout to reset cycling state
 
+// Initialize tab history with existing tabs when extension starts
+async function initializeTabHistory() {
+    try {
+        console.log("Initializing tab history...");
+
+        // Get all tabs in the current window
+        const tabs = await chrome.tabs.query({ currentWindow: true });
+
+        // Sort tabs by lastAccessed (most recent first)
+        tabs.sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0));
+
+        // Take the most recent MAX_TAB_HISTORY tabs
+        tabHistory = tabs.slice(0, MAX_TAB_HISTORY).map(tab => tab.id);
+
+        console.log(`Tab history initialized with ${tabHistory.length} tabs: [${tabHistory.join(', ')}]`);
+    } catch (error) {
+        console.error("Error initializing tab history:", error);
+    }
+}
+
 // Configure Chrome side panel behavior
 chrome.sidePanel.setPanelBehavior({
     openPanelOnActionClick: true
@@ -421,17 +441,19 @@ async function runAutoArchiveCheck() {
 // --- Event Listeners to Track Activity and Setup Alarm ---
 
 // Run setup when the extension is installed or updated
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener(async () => {
     console.log("Extension installed/updated. Setting up alarm.");
     setupAutoArchiveAlarm();
+    await initializeTabHistory();
     // Initialize activity for all existing tabs? Maybe too much overhead.
     // Better to let the alarm handle it over time.
 });
 
 // Run setup when Chrome starts
-chrome.runtime.onStartup.addListener(() => {
+chrome.runtime.onStartup.addListener(async () => {
     console.log("Chrome started. Setting up alarm.");
     setupAutoArchiveAlarm();
+    await initializeTabHistory();
 });
 
 // Listen for changes in storage (e.g., settings updated from options page)
