@@ -131,6 +131,35 @@ function canInjectContentScript(url) {
     return true;
 }
 
+// Helper function to inject content script into a tab if not already present
+async function ensureContentScriptInjected(tabId, url) {
+    if (!canInjectContentScript(url)) {
+        console.log(`Cannot inject content script into tab ${tabId} with URL: ${url}`);
+        return false;
+    }
+
+    try {
+        // Try to ping the content script to see if it's already loaded
+        await chrome.tabs.sendMessage(tabId, { action: 'ping' });
+        console.log(`Content script already present in tab ${tabId}`);
+        return true;
+    } catch (error) {
+        // Content script not present, inject it
+        console.log(`Content script not found in tab ${tabId}, injecting...`);
+        try {
+            await chrome.scripting.executeScript({
+                target: { tabId: tabId },
+                files: ['tab-switcher-modal.js']
+            });
+            console.log(`Successfully injected content script into tab ${tabId}`);
+            return true;
+        } catch (injectionError) {
+            console.error(`Failed to inject content script into tab ${tabId}:`, injectionError);
+            return false;
+        }
+    }
+}
+
 chrome.commands.onCommand.addListener(async function(command) {
     if (command === "quickPinToggle") {
         console.log("sending");
@@ -207,49 +236,41 @@ chrome.commands.onCommand.addListener(async function(command) {
             await chrome.tabs.update(targetTabId, { active: true });
             console.log(`Cycled to tab: ${targetTabId} (index ${currentCycleIndex}/${tabHistory.length})`);
 
-            // Gather details for all tabs in history
-            const tabDetails = [];
-            for (const tabId of tabHistory) {
-                try {
-                    const tab = await chrome.tabs.get(tabId);
-                    tabDetails.push({
-                        id: tab.id,
-                        title: tab.title,
-                        url: tab.url,
-                        favIconUrl: tab.favIconUrl,
-                        windowId: tab.windowId,
-                        active: tab.active
-                    });
-                } catch (error) {
-                    console.log(`Tab ${tabId} no longer exists`);
-                }
-            }
+            // Ensure content script is injected into the target tab
+            const scriptInjected = await ensureContentScriptInjected(targetTabId, targetTab.url);
 
-            // Send message to show/update tab switcher modal to ALL tabs in current window
-            // This ensures the modal appears no matter which tab you're viewing
-            try {
-                const allTabsInWindow = await chrome.tabs.query({ windowId: targetTab.windowId });
-                let successCount = 0;
-
-                for (const tab of allTabsInWindow) {
+            if (scriptInjected) {
+                // Gather details for all tabs in history
+                const tabDetails = [];
+                for (const tabId of tabHistory) {
                     try {
-                        // Only send to tabs that can receive content scripts
-                        if (canInjectContentScript(tab.url)) {
-                            await chrome.tabs.sendMessage(tab.id, {
-                                action: 'showTabSwitcher',
-                                tabDetails: tabDetails,
-                                currentIndex: currentCycleIndex
-                            });
-                            successCount++;
-                        }
+                        const tab = await chrome.tabs.get(tabId);
+                        tabDetails.push({
+                            id: tab.id,
+                            title: tab.title,
+                            url: tab.url,
+                            favIconUrl: tab.favIconUrl,
+                            windowId: tab.windowId,
+                            active: tab.active
+                        });
                     } catch (error) {
-                        // Tab might not have content script loaded yet, that's okay
+                        console.log(`Tab ${tabId} no longer exists`);
                     }
                 }
 
-                console.log("Tab switcher modal message sent to", successCount, "tabs", { currentIndex: currentCycleIndex, tabCount: tabDetails.length });
-            } catch (error) {
-                console.log("Could not show tab switcher modal:", error.message);
+                // Send message to show tab switcher modal in the active tab
+                try {
+                    await chrome.tabs.sendMessage(targetTabId, {
+                        action: 'showTabSwitcher',
+                        tabDetails: tabDetails,
+                        currentIndex: currentCycleIndex
+                    });
+                    console.log("Tab switcher modal shown in tab", targetTabId, { currentIndex: currentCycleIndex, tabCount: tabDetails.length });
+                } catch (error) {
+                    console.log("Could not show tab switcher modal:", error.message);
+                }
+            } else {
+                console.log("Cannot show tab switcher modal - content script injection failed or URL is restricted");
             }
         } catch (error) {
             console.log("Error switching to tab:", error.message);

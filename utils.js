@@ -311,13 +311,19 @@ const Utils = {
     },
 
     // Set or update customization for a pinned tab
-    setPinnedTabCustomization: async function(tabId, customName, customFavicon) {
+    setPinnedTabCustomization: async function(tabId, customName, customFavicon, originalData = null) {
         if (!tabId) return;
 
         const customizations = await this.getPinnedTabCustomizations();
+        const existing = customizations[tabId] || {};
+
         customizations[tabId] = {
             customName: customName || null,
-            customFavicon: customFavicon || null
+            customFavicon: customFavicon || null,
+            // Preserve original data if it exists, or set it from originalData param
+            originalUrl: existing.originalUrl || (originalData?.originalUrl || null),
+            originalTitle: existing.originalTitle || (originalData?.originalTitle || null),
+            originalFavicon: existing.originalFavicon || (originalData?.originalFavicon || null)
         };
         await this.savePinnedTabCustomizations(customizations);
         console.log(`Customization set for pinned tab ${tabId}`);
@@ -338,6 +344,27 @@ const Utils = {
             delete customizations[tabId];
             await this.savePinnedTabCustomizations(customizations);
             console.log(`Customization removed for pinned tab ${tabId}`);
+        }
+    },
+
+    // Initialize pinned tab with original data (called when tab is first pinned)
+    initializePinnedTabData: async function(tabId, url, title, favIconUrl) {
+        if (!tabId) return;
+
+        const customizations = await this.getPinnedTabCustomizations();
+
+        // Only initialize if this tab doesn't already have original data
+        if (!customizations[tabId]?.originalUrl) {
+            customizations[tabId] = {
+                ...customizations[tabId],
+                customName: customizations[tabId]?.customName || null,
+                customFavicon: customizations[tabId]?.customFavicon || null,
+                originalUrl: url,
+                originalTitle: title,
+                originalFavicon: favIconUrl || null
+            };
+            await this.savePinnedTabCustomizations(customizations);
+            console.log(`Initialized pinned tab data for ${tabId}: ${url}`);
         }
     },
 
@@ -368,7 +395,7 @@ const Utils = {
         }
     },
 
-    // Sync pinned tab to bookmarks
+    // Sync pinned tab to bookmarks (uses original URL when available)
     syncPinnedTabToBookmark: async function(tab) {
         if (!tab || !tab.url) return;
 
@@ -376,11 +403,13 @@ const Utils = {
             const pinnedTabsFolder = await this.getOrCreatePinnedTabsFolder();
             if (!pinnedTabsFolder) return;
 
+            // Get customization data to use original URL if available
             const customData = await this.getPinnedTabCustomization(tab.id);
-            const bookmarkTitle = customData?.customName || tab.title || tab.url;
+            const bookmarkUrl = customData?.originalUrl || tab.url;
+            const bookmarkTitle = customData?.customName || customData?.originalTitle || tab.title || tab.url;
 
             const existingBookmarks = await chrome.bookmarks.getChildren(pinnedTabsFolder.id);
-            const existingBookmark = existingBookmarks.find(b => b.url === tab.url);
+            const existingBookmark = existingBookmarks.find(b => b.url === bookmarkUrl);
 
             if (existingBookmark) {
                 await chrome.bookmarks.update(existingBookmark.id, {
@@ -391,9 +420,9 @@ const Utils = {
                 await chrome.bookmarks.create({
                     parentId: pinnedTabsFolder.id,
                     title: bookmarkTitle,
-                    url: tab.url
+                    url: bookmarkUrl
                 });
-                console.log(`Created pinned tab bookmark: ${bookmarkTitle}`);
+                console.log(`Created pinned tab bookmark: ${bookmarkTitle} (${bookmarkUrl})`);
             }
         } catch (error) {
             console.error('Error syncing pinned tab to bookmark:', error);

@@ -76,8 +76,17 @@ async function updatePinnedFavicons() {
 
         // Get custom data from storage
         const customData = await Utils.getPinnedTabCustomization(tab.id);
-        const displayTitle = customData?.customName || tab.title;
-        const displayFavicon = customData?.customFavicon || Utils.getFaviconUrl(tab.url, "96");
+
+        // Initialize pinned tab data if not already set (first time pinned)
+        if (!customData?.originalUrl) {
+            await Utils.initializePinnedTabData(tab.id, tab.url, tab.title, tab.favIconUrl);
+        }
+
+        // Use custom name > original title > current title
+        const displayTitle = customData?.customName || customData?.originalTitle || tab.title;
+        // Use custom favicon > original URL's favicon > current URL's favicon
+        const originalUrl = customData?.originalUrl || tab.url;
+        const displayFavicon = customData?.customFavicon || Utils.getFaviconUrl(originalUrl, "96");
 
         if (!existingElement) {
             const faviconElement = document.createElement('div');
@@ -233,9 +242,15 @@ function showPinnedFaviconContextMenu(x, y, tabId, tabUrl, displayTitle, display
     unpinOption.className = 'context-menu-item';
     unpinOption.innerHTML = '📌 Unpin Tab';
     unpinOption.addEventListener('click', async () => {
+        // Get the original URL from customization data for bookmark removal
+        const customData = await Utils.getPinnedTabCustomization(tabId);
+        const originalUrl = customData?.originalUrl || tabUrl;
+
         await chrome.tabs.update(tabId, { pinned: false });
-        // Remove bookmark when unpinning
-        await Utils.removePinnedTabFromBookmarks(tabUrl);
+        // Remove bookmark using the original URL
+        await Utils.removePinnedTabFromBookmarks(originalUrl);
+        // Clean up customization data when unpinning
+        await Utils.removePinnedTabCustomization(tabId);
         updatePinnedFavicons();
         contextMenu.remove();
     });

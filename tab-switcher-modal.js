@@ -360,6 +360,12 @@ console.log('[Arcify Tab Switcher] Content script loaded');
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     console.log('[Arcify Tab Switcher] Received message:', request.action);
 
+    if (request.action === 'ping') {
+        // Respond to ping to confirm content script is loaded
+        sendResponse({ status: 'ok' });
+        return true;
+    }
+
     if (request.action === 'showTabSwitcher') {
         console.log('[Arcify Tab Switcher] Showing modal with', request.tabDetails?.length, 'tabs at index', request.currentIndex);
         tabSwitcherModal.show(request.tabDetails, request.currentIndex);

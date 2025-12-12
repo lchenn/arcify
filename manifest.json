@@ -13,7 +13,11 @@
     "alarms",
     "commands",
     "favicon",
-    "search"
+    "search",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
   ],
   "side_panel": {
     "default_path": "sidebar.html"
